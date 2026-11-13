@@ -7,10 +7,16 @@ spring:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
   datasource:
-    url: jdbc:postgresql://localhost:5432/linkdb
+    url: jdbc:postgresql://localhost:5432/link_db
     username: link_user
     password: ${LINK_DB_PASSWORD:link_dev_password}
     driver-class-name: org.postgresql.Driver
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:linkuser}
+    password: ${RABBITMQ_PASSWORD:linkpassword}
 
   jpa:
     hibernate:
