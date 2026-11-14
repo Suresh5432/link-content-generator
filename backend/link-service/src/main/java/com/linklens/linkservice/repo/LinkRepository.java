@@ -1,13 +1,21 @@
 package com.linklens.linkservice.repo;
 
 import com.linklens.linkservice.entity.Link;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface LinkRepository extends JpaRepository<Link, UUID> {
-    List<Link> findAllByUserIdOrderByCreatedAtDesc(String userId);
+    Optional<Link> findByIdAndUserId(UUID id, String userId);
+
+    Page<Link> findAllByUserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
+
+    boolean existsByUserIdAndIdempotencyKey(String userId, String idempotencyKey);
+
+    Optional<Link> findByUserIdAndIdempotencyKey(String userId, String idempotencyKey);
 }

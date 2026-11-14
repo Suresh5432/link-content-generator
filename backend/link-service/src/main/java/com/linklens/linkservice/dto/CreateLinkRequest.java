@@ -5,9 +5,9 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-public class LinkRequest {
+public class CreateLinkRequest {
 
     @NotBlank(message = "URL cannot be empty")
-    @Size(max = 2048, message = "URL is too long")
+    @Size(max = 2048, message = "URL must not exceed 2048 characters")
     private String url;
 }

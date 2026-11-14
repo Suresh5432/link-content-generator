@@ -7,8 +7,8 @@ spring:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
   datasource:
-    url: jdbc:postgresql://localhost:5432/link_db
-    username: link_user
+    url: ${LINK_DB_URL:jdbc:postgresql://localhost:5432/link_db}
+    username: ${LINK_DB_USERNAME:link_user}
     password: ${LINK_DB_PASSWORD:link_dev_password}
     driver-class-name: org.postgresql.Driver
 
@@ -25,10 +25,13 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        default_schema: public
 
   flyway:
     enabled: true
     locations: classpath:db/migration
+    schemas: public
+    default-schema: public
 management:
   endpoints:
     web:
