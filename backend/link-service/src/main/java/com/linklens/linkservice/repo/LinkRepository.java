@@ -11,9 +11,10 @@ import java.util.UUID;
 
 @Repository
 public interface LinkRepository extends JpaRepository<Link, UUID> {
-    Optional<Link> findByIdAndUserId(UUID id, String userId);
 
-    Page<Link> findAllByUserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
+    Optional<Link> findByIdAndUserIdAndDeletedAtIsNull(UUID id, String userId);
+
+    Page<Link> findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(String userId, Pageable pageable);
 
     boolean existsByUserIdAndIdempotencyKey(String userId, String idempotencyKey);
 

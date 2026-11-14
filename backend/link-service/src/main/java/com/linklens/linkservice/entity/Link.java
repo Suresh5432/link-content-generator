@@ -62,6 +62,9 @@ public class Link {
     @Column(name="version", nullable = false)
     private Long version;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @PrePersist
     public void onCreate(){
         createdAt = Instant.now();
@@ -90,4 +93,7 @@ public class Link {
         this.completedAt=null;
     }
 
+    public void softDelete(){
+        this.deleteAt=Instant.now();
+    }
 }
