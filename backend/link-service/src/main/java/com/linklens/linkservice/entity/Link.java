@@ -94,6 +94,6 @@ public class Link {
     }
 
     public void softDelete(){
-        this.deleteAt=Instant.now();
+        this.deletedAt=Instant.now();
     }
 }
