@@ -1,5 +1,6 @@
 package com.linklens.linkservice.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -61,6 +62,11 @@ public class LinkSecurityConfig {
 
             return new JwtAuthenticationToken(jwt,authorities, subject);
         };
+    }
+
+    @Bean
+    public ObjectMapper objectMapper(){
+        return new ObjectMapper();
     }
 
 }
