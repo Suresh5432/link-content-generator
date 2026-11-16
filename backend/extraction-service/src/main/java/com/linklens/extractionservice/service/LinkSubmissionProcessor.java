@@ -27,16 +27,12 @@ public class LinkSubmissionProcessor {
 
         ExtractionResult result=extractionService.extract(event.url());
 
-        extractionPersistenceService.saveExtraction(
-                event.linkId(),
-                event.userId(),
-                event.url(),
-                new ExtractionPersistenceService.ExtractionResultHolder(result.getPage())
-        );
-
-        processedEventRepository.save(ProcessedEvent.builder()
-                .eventId(event.eventId())
-                .eventType("link.submitted.v1")
-                .build());
+       extractionPersistenceService.saveExtraction(
+               event.eventId(),
+               event.linkId(),
+               event.userId(),
+               event.url(),
+               result.getPage()
+       );
     }
 }

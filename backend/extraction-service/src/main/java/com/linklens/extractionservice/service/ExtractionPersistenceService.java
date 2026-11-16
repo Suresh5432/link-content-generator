@@ -4,8 +4,10 @@ import com.linkcontext.contracts.events.ContentExtractedEvent;
 import com.linklens.extractionservice.dto.ExtractedPage;
 import com.linklens.extractionservice.entity.ExtractionContent;
 import com.linklens.extractionservice.entity.ExtractionOutboxEvent;
+import com.linklens.extractionservice.entity.ProcessedEvent;
 import com.linklens.extractionservice.repo.ExtractionContentRepository;
 import com.linklens.extractionservice.repo.ExtractionOutboxRepository;
+import com.linklens.extractionservice.repo.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,21 +24,27 @@ public class ExtractionPersistenceService {
 
     private final ExtractionOutboxRepository extractionOutboxRepository;
 
+    private final ProcessedEventRepository processedEventRepository;
+
     private final ObjectMapper objectMapper;
 
     @Transactional
     public UUID saveExtraction(
+            UUID eventId,
             UUID linkId,
             String userId,
             String sourceUrl,
-            ExtractionResultHolder result){
+            ExtractedPage page){
 
-        if (extractionContentRepository.existsByLinkId(linkId)){
+        if (processedEventRepository.existsByEventId(eventId)){
             return extractionContentRepository.findByLinkId(linkId)
                     .orElseThrow()
                     .getId();
         }
-        ExtractedPage page =result.page();
+
+        if (extractionContentRepository.existsByLinkId(linkId)){
+            throw new IllegalStateException("Link already has extracted content but event is not recorded");
+        }
 
         UUID contentId=UUID.randomUUID();
 
@@ -48,6 +56,7 @@ public class ExtractionPersistenceService {
                 .canonicalUrl(page.getCanonicalUrl())
                 .title(page.getTitle())
                 .description(page.getDescription())
+                .contentType(page.getContentType())
                 .language(page.getLanguage())
                 .extractedText(page.getExtractedText())
                 .wordCount(page.getWordCount())
@@ -79,6 +88,11 @@ public class ExtractionPersistenceService {
                             .payload(payload)
                             .build();
             extractionOutboxRepository.save(outboxEvent);
+
+            processedEventRepository.save(ProcessedEvent.builder()
+                            .eventId(eventId)
+                            .eventType("content.extracted.v1")
+                            .build());
         } catch (Exception e) {
             throw new IllegalArgumentException("Unable to serialize extraction event", e);
         }
@@ -86,5 +100,4 @@ public class ExtractionPersistenceService {
         return contentId;
     }
 
-    public record ExtractionResultHolder(ExtractedPage page){}
 }

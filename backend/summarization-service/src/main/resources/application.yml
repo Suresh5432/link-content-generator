@@ -1,0 +1,57 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: summarization-service
+  datasource:
+    url: ${SUMMARY_DB_URL:jdbc:postgresql://localhost:5432/summary_db}
+    username: ${SUMMARY_DB_USERNAME:summary_user}
+    password: ${SUMMARY_DB_PASSWORD:summary_dev_password}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:linkuser}
+    password: ${RabbitMQ_PASSWORD:linkpassword}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        max-concurrency: 5
+        concurrency: 2
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+summarization:
+  content-service:
+    base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
+  ai:
+    provider: ${AI_PROVIDER:mock}
+    model: ${AI_MODEL:}
+    max-input-characters: 50000
+    timeour-seconds: 60
+
+  reading:
+    words-per-minite: 200
+  outbox:
+    fixed-delay-ms: 1000
+    confirm-timeout-seconds: 5
