@@ -1,6 +1,8 @@
 package com.linklens.linkservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkcontext.contracts.EventRoutingKey;
 import com.linkcontext.contracts.events.LinkSubmittedEvent;
@@ -15,6 +17,7 @@ import com.linklens.linkservice.exception.ResourceNotFoundException;
 import com.linklens.linkservice.repo.LinkRepository;
 import com.linklens.linkservice.repo.OutboxRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -26,6 +29,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LinkService {
 
     private final LinkRepository linkRepository;
@@ -43,6 +47,7 @@ public class LinkService {
         validateUserId(userId);
         validateIdempotencyKey(idempotencyKey);
         String normalizedUrl=urlNormalizer.normalize(linkRequest.getUrl());
+        log.debug("Creating link for user {}", userId);
 
         if(idempotencyKey!=null){
             var existingLink=linkRepository
@@ -52,9 +57,11 @@ public class LinkService {
                 Link existing=existingLink.get();
 
                 if(!existing.getNormalizedUrl().equals(normalizedUrl)){
+                    log.warn("Idempotency conflict for user {} and link {}", userId, existing.getId());
                     throw new IdempotencyConflictException(
                             "Idempotency key was already used for another URL");
                 }
+                log.info("Returning existing link {} for user {}", existing.getId(), userId);
                 return mapToResponse(existing);
             }
         }
@@ -65,9 +72,10 @@ public class LinkService {
                 .idempotencyKey(idempotencyKey)
                 .status(LinkStatus.PENDING_EXTRACTION)
                 .build();
+        Link savedLink=linkRepository.save(link);
         LinkSubmittedEvent event =new LinkSubmittedEvent(
                 UUID.randomUUID(),
-                link.getId(),
+                savedLink.getId(),
                 userId,
                 normalizedUrl,
                 Instant.now(),
@@ -78,13 +86,14 @@ public class LinkService {
         OutboxEvent outboxEvent=OutboxEvent.builder()
                 .id(event.eventId())
                 .aggregateType("LINK")
-                .aggregateId(link.getId())
+                .aggregateId(savedLink.getId())
                 .eventType(EventRoutingKey.LINK_SUBMITTED)
                 .payload(payload)
                 .build();
-        Link savedLink=linkRepository.save(link);
-
         outboxRepository.save(outboxEvent);
+
+        log.info("Created link {} for user {} and queued submission event {}",
+                savedLink.getId(), userId, event.eventId());
 
         return mapToResponse(savedLink);
     }
@@ -93,9 +102,12 @@ public class LinkService {
     public LinkResponse getLink(UUID linkId, String userId){
         validateUserId(userId);
         Link link=linkRepository.findByIdAndUserIdAndDeletedAtIsNull(linkId,userId)
-                .orElseThrow(()->
-                        new ResourceNotFoundException("Link not found"));
+                .orElseThrow(()-> {
+                    log.debug("Link {} not found for user {}", linkId, userId);
+                    return new ResourceNotFoundException("Link not found");
+                });
 
+        log.debug("Retrieved link {} for user {}", linkId, userId);
         return mapToResponse(link);
     }
 
@@ -112,6 +124,8 @@ public class LinkService {
         PageRequest pageable=PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"createdAt"));
 
         Page<Link> links=linkRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId,pageable);
+        log.debug("Retrieved {} links for user {} (page {}, size {})",
+                links.getNumberOfElements(), userId, page, size);
 
         return new PagedResponse<>(
                 links.getContent()
@@ -132,9 +146,12 @@ public class LinkService {
         validateUserId(userId);
         Link link=linkRepository
                 .findByIdAndUserIdAndDeletedAtIsNull(linkId,userId)
-                .orElseThrow(()->
-                        new ResourceNotFoundException("Link not found"));
+                .orElseThrow(()-> {
+                    log.debug("Link {} not found for deletion by user {}", linkId, userId);
+                    return new ResourceNotFoundException("Link not found");
+                });
         link.softDelete();
+        log.info("Soft-deleted link {} for user {}", linkId, userId);
     }
 
     private void validateUserId(String userId) {
@@ -156,9 +173,12 @@ public class LinkService {
 
     private String serializedEvent(LinkSubmittedEvent event) {
         try{
+            ObjectMapper objectMapper=new ObjectMapper();
+            objectMapper.registerModule(new JavaTimeModule());
             return objectMapper.writeValueAsString(event);
         }
         catch (JsonProcessingException exception){
+            log.error("Failed to serialize link submission event {}", event.eventId(), exception);
             throw new IllegalArgumentException("Unable to serialize link event",
                     exception);
         }

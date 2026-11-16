@@ -1,6 +1,7 @@
 package com.linklens.linkservice.exception;
 
 import com.linklens.linkservice.dto.ApiErrorResponse;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -116,6 +118,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleException(
             Exception exception,
             HttpServletRequest request){
+        log.error("Unhandled exception processing {} {}", request.getMethod(),
+                request.getRequestURI(), exception);
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Internal Server Error",

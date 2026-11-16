@@ -17,6 +17,10 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:linkuser}
     password: ${RABBITMQ_PASSWORD:linkpassword}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 
   jpa:
     hibernate:
@@ -43,4 +47,8 @@ management:
 
 server:
   port: 8081
+
+logging:
+  level:
+    root: info
 
