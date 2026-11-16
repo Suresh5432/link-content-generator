@@ -32,6 +32,10 @@ spring:
         prefetch: 1
         concurrency: 2
         max-concurrency: 5
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 management:
   endpoints:
     web:
