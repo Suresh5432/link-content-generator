@@ -1,5 +1,6 @@
 package com.linklens.extractionservice.service;
 
+import com.linklens.extractionservice.exception.UnsafeUrlException;
 import org.springframework.stereotype.Component;
 
 import java.net.*;
@@ -57,7 +58,7 @@ public class UrlSafetyValidator {
             throw new UnsafeUrlException("Ip address URLs are not allowed");
         }
 
-        validateDnsAddredsses(normalizedHost);
+        validateDnsAddresses(normalizedHost);
 
         return uri;
     }
