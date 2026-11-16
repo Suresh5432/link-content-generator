@@ -3,6 +3,8 @@ package com.linklens.extractionservice.messaging;
 import com.linklens.extractionservice.config.RabbitMQConfig;
 import com.linklens.extractionservice.entity.ExtractionOutboxEvent;
 import com.linklens.extractionservice.repo.ExtractionOutboxRepository;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -10,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -48,21 +51,18 @@ public class ExtractionOutboxPublisher {
                 new CorrelationData(event.getId().toString());
 
         try{
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.EXTRACTION_EXCHANGE,
-                    event.getEventType(),
-                    event.getPayload(),
-                    message -> {
-                        message.getMessageProperties()
-                                .setMessageId(event.getId().toString());
-                        message.getMessageProperties()
-                                .setContentType("application/json");
-                        message.getMessageProperties()
-                                .setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+            Message message= MessageBuilder
+                    .withBody(event.getPayload().getBytes(StandardCharsets.UTF_8))
+                    .setContentType("application/json")
+                    .setMessageId(event.getId().toString())
+                    .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
+                    .build();
 
-                        return message;
-                    },correlationData
-            );
+            rabbitTemplate.send(RabbitMQConfig.EXTRACTION_EXCHANGE,
+                    event.getEventType(),
+                    message,
+                    correlationData
+                    );
 
             CorrelationData.Confirm confirm=correlationData
                     .getFuture()
@@ -77,10 +77,15 @@ public class ExtractionOutboxPublisher {
             }
             event.markPublished();
         }
-        catch(Exception e){
-            String error= e.getMessage()==null
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            event.recordFailure("Publishing interrupted");
+        }
+        catch (Exception e) {
+            String error = e.getMessage() == null
                     ? e.getClass().getSimpleName()
                     : e.getMessage();
+
             event.recordFailure(error);
         }
     }

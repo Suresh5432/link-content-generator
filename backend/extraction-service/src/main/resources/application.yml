@@ -24,7 +24,7 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:linkuser}
+    username: ${RABBITMQ_USER:linkuser}
     password: ${RABBITMQ_PASSWORD:linkpassword}
     listener:
       simple:
@@ -36,6 +36,7 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
+    virtual-host: /
 management:
   endpoints:
     web:
@@ -53,3 +54,6 @@ extraction:
     max-response-size-bytes: 5242880
     max-redirects: 5
     user-agent: LinkContextBot/1.0
+  outbox:
+    fixed-delay-ms: 1000
+    confirm-timeout-seconds: 5
