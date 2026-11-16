@@ -183,7 +183,7 @@ public class SafeWebFetcher {
         }
     }
 
-    private record FetchedPage(
+    public record FetchedPage(
             String finalUrl,
             String contentType,
             byte[] body

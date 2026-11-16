@@ -13,5 +13,6 @@ public class ExtractedPage {
     private String canonicalUrl;
     private String contentType;
     private String language;
+    private String extractedText;
     private int wordCount;
 }
