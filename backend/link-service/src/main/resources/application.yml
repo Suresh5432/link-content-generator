@@ -52,3 +52,8 @@ logging:
   level:
     root: info
 
+outbox:
+  publisher:
+    fixed-delay: 1000
+    confirm-timeout: 5s
+

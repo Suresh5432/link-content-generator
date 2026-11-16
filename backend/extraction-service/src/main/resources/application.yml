@@ -1,0 +1,51 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: extraction-service
+
+  datasource:
+    url: ${EXTRACTION_DB_URL:jdbc:postgresql://localhost:5432/extraction_db}
+    username: ${EXTRACTION_DB_USERNAME:extraction_user}
+    password: ${EXTRACTION_DB_PASSWORD:extraction_dev_password}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:linkuser}
+    password: ${RABBITMQ_PASSWORD:linkpassword}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        concurrency: 2
+        max-concurrency: 5
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+extraction:
+  fetch:
+    connect-timeout-seconds: 5
+    request-timeout-seconds: 15
+    max-response-size-bytes: 5242880
+    max-redirects: 5
+    user-agent: LinkContextBot/1.0

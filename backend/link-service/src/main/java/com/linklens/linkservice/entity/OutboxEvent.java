@@ -72,7 +72,14 @@ public class OutboxEvent {
 
     public void recordFailure(String error){
         this.attempts++;
-        this.lastError = error;
+
+        this.lastError = error.length()>2000
+                ? error.substring(0, 2000)
+                : error;
+
+        long delaySeconds= Math.min(5L *(1L<<Math.min(this.attempts-1,10)),3600L);
+
+        this.availableAt = Instant.now().plusSeconds(delaySeconds);
     }
 
 }
