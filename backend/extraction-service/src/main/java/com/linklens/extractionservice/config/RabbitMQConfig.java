@@ -14,15 +14,15 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    private static final String LINK_EXCHANGE="link.events";
+    public static final String LINK_EXCHANGE="link.events";
 
-    private static final String EXTRACTION_QUEUE="extraction.link-submitted";
+    public static final String EXTRACTION_QUEUE="extraction.link-submitted";
 
-    private static final String LINK_SUBMITTED_ROUTING_KEY="link.submitted.v1";
+    public static final String LINK_SUBMITTED_ROUTING_KEY="link.submitted.v1";
 
-    private static final String EXTRACTION_EXCHANGE="extarction.events";
+    public static final String EXTRACTION_EXCHANGE="extarction.events";
 
-    private static final String CONTENT_EXTRACTED_ROUTING_KEY="content.extracted.v1";
+    public static final String CONTENT_EXTRACTED_ROUTING_KEY="content.extracted.v1";
 
     @Bean
     public TopicExchange linkExchange() {

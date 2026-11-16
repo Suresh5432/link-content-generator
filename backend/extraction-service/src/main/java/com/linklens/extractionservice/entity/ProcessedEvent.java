@@ -1,9 +1,6 @@
 package com.linklens.extractionservice.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
@@ -27,5 +24,12 @@ public class ProcessedEvent {
 
     @Column(name="processed_at", nullable = false)
     private Instant processedAt;
+
+    @PrePersist
+    protected  void prePersist(){
+        if (this.processedAt == null) {
+            this.processedAt = Instant.now();
+        }
+    }
 
 }
