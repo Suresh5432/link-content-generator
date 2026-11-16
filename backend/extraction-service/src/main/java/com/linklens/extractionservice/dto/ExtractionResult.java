@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 public class ExtractionResult {
-    private String finalUr;
+    private String finalUrl;
     private String responseContentType;
     private ExtractedPage page;
 }

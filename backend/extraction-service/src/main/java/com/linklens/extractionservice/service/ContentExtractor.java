@@ -39,11 +39,16 @@ public class ContentExtractor {
             "textarea"
     );
 
-    public ExtractedPage extract(SafeWebFetcher.FetchedPage fetchedPage) throws UnsupportedEncodingException {
-        Document document = Jsoup.parse(
-                new String(fetchedPage.body(), detectCharset(fetchedPage)),
-                fetchedPage.finalUrl()
-        );
+    public ExtractedPage extract(SafeWebFetcher.FetchedPage fetchedPage) {
+        Document document = null;
+        try {
+            document = Jsoup.parse(
+                    new String(fetchedPage.body(), detectCharset(fetchedPage)),
+                    fetchedPage.finalUrl()
+            );
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalArgumentException("Unable to parse the webpage content using jsoup");
+        }
 
         String title=extractTitle(document);
         String description=extractDescription(document);
