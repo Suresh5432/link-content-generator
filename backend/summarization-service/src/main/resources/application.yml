@@ -2,6 +2,20 @@ server:
   port: 8083
 
 spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          extraction-service:
+            provider: keycloak
+            client-id: ${EXTRACTION_CLIENT_ID}
+            client-secret: ${EXTRACTION_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            scope:
+              -  extraction.read
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/link-context/openid-connect/token}
   application:
     name: summarization-service
   datasource:
@@ -45,8 +59,8 @@ summarization:
   content-service:
     base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
   ai:
-    provider: ${AI_PROVIDER:mock}
-    model: ${AI_MODEL:}
+    provider: ${AI_PROVIDER:gemini}
+    model: ${AI_MODEL:gemini-3.8-flash}
     max-input-characters: 50000
     timeour-seconds: 60
 
