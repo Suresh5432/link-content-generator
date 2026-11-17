@@ -28,4 +28,9 @@ public class OAuth2ClientConfig {
 
     }
 
+    @Bean
+    RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
+
 }
