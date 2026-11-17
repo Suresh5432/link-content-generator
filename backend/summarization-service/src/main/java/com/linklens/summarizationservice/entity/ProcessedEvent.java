@@ -29,4 +29,9 @@ public class ProcessedEvent {
 
     @Column(name = "processed_at", nullable = false)
     private Instant processedAt;
+
+    public ProcessedEvent(UUID eventId, String eventType) {
+        this.eventId = eventId;
+        this.eventType = eventType;
+    }
 }
