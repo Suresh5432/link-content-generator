@@ -1,9 +1,6 @@
 package com.linklens.summarizationservice.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,5 +30,11 @@ public class ProcessedEvent {
     public ProcessedEvent(UUID eventId, String eventType) {
         this.eventId = eventId;
         this.eventType = eventType;
+        this.processedAt = Instant.now();
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        this.processedAt = Instant.now();
     }
 }
