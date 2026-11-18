@@ -59,10 +59,13 @@ summarization:
   content-service:
     base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
   ai:
-    provider: ${AI_PROVIDER:gemini}
-    model: ${AI_MODEL:gemini-3.8-flash}
+    provider: ollama
+    model: qwen2.5:3b
     max-input-characters: 50000
-    timeour-seconds: 60
+    timeout-seconds: 120
+
+  ollama:
+    base-url: http://localhost:11434
 
   reading:
     words-per-minite: 200
