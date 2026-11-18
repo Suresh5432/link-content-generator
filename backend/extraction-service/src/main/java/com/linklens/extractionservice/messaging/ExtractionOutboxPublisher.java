@@ -11,12 +11,14 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class ExtractionOutboxPublisher {
 
     private final ExtractionOutboxRepository repository;
@@ -39,6 +41,7 @@ public class ExtractionOutboxPublisher {
     public void publishBatch(){
 
         List<ExtractionOutboxEvent> events = repository.findPendingBatch(20);
+        if (!events.isEmpty()) log.debug("Publishing {} pending extraction outbox events", events.size());
 
         for (ExtractionOutboxEvent event : events) {
             publishOne(event);
@@ -76,10 +79,12 @@ public class ExtractionOutboxPublisher {
                 throw  new IllegalStateException("RabbitMQ returned the event because it was unroutable ");
             }
             event.markPublished();
+            log.debug("Published extraction outbox event {}", event.getId());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             event.recordFailure("Publishing interrupted");
+            log.warn("Publishing extraction outbox event {} was interrupted", event.getId(), e);
         }
         catch (Exception e) {
             String error = e.getMessage() == null
@@ -87,6 +92,7 @@ public class ExtractionOutboxPublisher {
                     : e.getMessage();
 
             event.recordFailure(error);
+            log.error("Failed to publish extraction outbox event {}", event.getId(), e);
         }
     }
 }

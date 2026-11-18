@@ -5,11 +5,13 @@ import com.linklens.summarizationservice.dto.SummaryResult;
 import com.linklens.summarizationservice.service.ai.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SummaryService {
 
     private final ExtractionContentClient contentClient;
@@ -31,6 +33,8 @@ public class SummaryService {
             String userId,
             String title,
             String language){
+
+        log.debug("Generating summary for event {} and link {} using provider {}", sourceEventId, linkId, aiProvider.getProviderName());
 
         ExtractedContentResponse content=
                 contentClient.getContent(contentId);
@@ -84,6 +88,7 @@ public class SummaryService {
                 userId,
                 request.title(),
                 result);
+        log.info("Persisted summary for link {} using provider {} model {}", linkId, result.aiProvider(), result.aiModel());
 
     }
 

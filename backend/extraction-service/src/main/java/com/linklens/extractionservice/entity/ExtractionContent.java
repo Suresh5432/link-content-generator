@@ -63,7 +63,7 @@ public class ExtractionContent {
     private int wordCount;
 
     @Column(name = "fetched_at" , nullable = false)
-    private Instant fetchAt;
+    private Instant fetchedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -74,6 +74,23 @@ public class ExtractionContent {
     @Version
     @Column(nullable = false)
     private long version;
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        if (id == null) {
+            id = UUID.randomUUID();
+        }
+        if (fetchedAt == null) {
+            fetchedAt=now;
+        }
+        if (updatedAt == null) {
+            updatedAt=now;
+        }
+        if (createdAt == null) {
+            createdAt=now;
+        }
+    }
 
     @PreUpdate
     protected void onUpdate(){

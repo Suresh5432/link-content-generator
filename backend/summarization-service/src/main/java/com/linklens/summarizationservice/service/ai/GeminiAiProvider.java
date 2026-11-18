@@ -12,7 +12,8 @@ import java.util.List;
 @Component
 @ConditionalOnProperty(
         name = "summarization.ai.provider",
-        havingValue = "gemini"
+        havingValue = "gemini",
+        matchIfMissing = true
 )
 public class GeminiAiProvider implements AiProvider {
 

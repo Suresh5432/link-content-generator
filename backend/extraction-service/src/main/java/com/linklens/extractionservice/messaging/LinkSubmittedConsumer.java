@@ -8,15 +8,18 @@ import com.linklens.extractionservice.exception.UnsafeUrlException;
 import com.linklens.extractionservice.service.LinkSubmissionProcessor;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class LinkSubmittedConsumer {
 
     private final ObjectMapper objectMapper;
@@ -29,6 +32,11 @@ public class LinkSubmittedConsumer {
 
         long deliveryTag=message.getMessageProperties().getDeliveryTag();
 
+        log.info("========== LINK SUBMISSION EVENT RECEIVED ==========");
+        log.info("Delivery tag: {}", deliveryTag);
+        log.info("Message body: {}",
+                new String(message.getBody(), StandardCharsets.UTF_8));
+
         LinkSubmittedEvent event;
 
         try{
@@ -36,8 +44,14 @@ public class LinkSubmittedConsumer {
                     message.getBody(),
                     LinkSubmittedEvent.class
             );
+            log.info("Event deserialized successfully. Event ID: {}, Link ID: {}",
+                    event.eventId(), event.linkId());
         }
         catch(Exception e){
+            log.error(
+                    "Failed to process link submitted event",
+                    e
+            );
            moveToDlqAndAck(
                    message,
                    channel,
@@ -47,10 +61,19 @@ public class LinkSubmittedConsumer {
            return;
         }
         try{
+            log.info("Starting extraction for link: {}", event.linkId());
+
             processor.process(event);
+
+            log.info("Extraction processing completed for link: {}",
+                    event.linkId());
+
             channel.basicAck(deliveryTag,false);
         }
         catch (UnsafeUrlException | ExtractionException ex){
+            log.error("Permanent extraction failure for link: {}",
+                    event.linkId(), ex);
+
             moveToDlqAndAck(
                     message,
                     channel,
@@ -59,9 +82,14 @@ public class LinkSubmittedConsumer {
             );
         }
         catch (RetryableExtractionException exception){
+            log.error("Retryable extraction failure for link: {}",
+                    event.linkId(), exception);
             retryAndAck(message, channel,deliveryTag);
         }
         catch (Exception exception){
+            log.error("Unexpected extraction failure for link: {}",
+                    event.linkId(), exception);
+
             retryAndAck(message, channel, deliveryTag);
         }
     }
@@ -71,8 +99,14 @@ public class LinkSubmittedConsumer {
                              long deliveryTag) throws IOException {
         try{
             extractionRetryPublisher.retry(message);
+
+            log.info("Message successfully published to retry queue");
+
             channel.basicAck(deliveryTag,false);
         } catch (Exception e) {
+            log.error("Retry publishing failed. Requeuing original message",
+                    e);
+
             channel.basicNack(deliveryTag,false,true);
         }
     }
@@ -83,8 +117,17 @@ public class LinkSubmittedConsumer {
                                  String reason) throws IOException {
         try{
             extractionRetryPublisher.publishToDlq(message, reason);
+
+            log.info("Message successfully published to DLQ. Reason: {}",
+                    reason);
+
             channel.basicAck(deliveryTag,false);
+
         } catch (Exception e) {
+
+            log.error("DLQ publishing failed. Requeuing original message",
+                    e);
+
             channel.basicNack(deliveryTag,false,true);
         }
     }

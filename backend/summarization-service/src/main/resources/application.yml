@@ -44,8 +44,8 @@ spring:
       simple:
         acknowledge-mode: manual
         prefetch: 1
-        max-concurrency: 5
-        concurrency: 2
+        max-concurrency: 3
+        concurrency: 1
 management:
   endpoint:
     health:

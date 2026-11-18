@@ -116,14 +116,13 @@ public class SafeWebFetcher {
     }
 
     private HttpResponse<InputStream> sendRequest(URI uri){
+
         HttpRequest request=HttpRequest.newBuilder()
                 .uri(uri)
-                .timeout(Duration.ofSeconds(
-                        extractionProperties.getRequestTimeoutSeconds()
-                ))
-                .header("User-Agent", extractionProperties.getUserAgent())
-                .headers("Accept", "text/html", "appliction/xhtml+xml")
-                .headers("Accept-Encoding","identity")
+                .timeout(Duration.ofSeconds(20))
+                .header("User-Agent", "LinkContextGenerator/1.0")
+                .headers("Accept", "text/html, appliction/xhtml+xml")
+                .headers("Accept-Encoding","en-US, en;q=0.9")
                 .GET()
                 .build();
 
