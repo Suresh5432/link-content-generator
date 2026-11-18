@@ -18,7 +18,7 @@ public class InternalContentController {
 
     private final InternalContentService internalContentService;
 
-    @GetMapping("/{contentId")
+    @GetMapping("/{contentId}")
     public ResponseEntity<ExtractedContentResponse> getContentById(
             @PathVariable UUID contentId) {
         return ResponseEntity.ok(internalContentService.getContent(contentId));

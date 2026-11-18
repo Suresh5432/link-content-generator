@@ -13,6 +13,7 @@ spring:
             authorization-grant-type: client_credentials
             scope:
               -  extraction.read
+              - openid
         provider:
           keycloak:
             token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/link-context/protocol/openid-connect/token}

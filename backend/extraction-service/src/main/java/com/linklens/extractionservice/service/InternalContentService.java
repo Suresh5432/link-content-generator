@@ -29,14 +29,11 @@ public class InternalContentService {
                 content.getLinkId(),
                 content.getUserId(),
                 content.getSourceUrl(),
-                content.getCanonicalUrl(),
                 content.getTitle(),
                 content.getDescription(),
-                content.getContentType(),
                 content.getLanguage(),
                 content.getExtractedText(),
-                content.getWordCount(),
-                content.getFetchedAt()
+                content.getWordCount()
         );
     }
 }
