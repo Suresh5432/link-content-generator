@@ -1,6 +1,8 @@
 package com.linklens.summarizationservice.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,20 +11,28 @@ public class RabbitMQConfig {
 
     public static final String EXTRACTION_EXCHANGE=
             "extraction.events";
+
     public static final String CONTENT_EXTRACTED_QUEUE=
             "summarization.content-extracted";
+
     public static final String CONTENT_EXTRACTED_ROUTING_KEY=
             "content.extracted.v1";
+
     public static final String RETRY_EXCHANGE=
             "summarization.retry";
+
     public static final String RETRY_QUEUE=
             "summarization.content-extracted.retry";
+
     public static final String RETRY_ROUTING_KEY=
             "content-extracted.retry";
+
     public static final String DLQ_EXCHANGE=
             "summarization.dlq";
+
     public static final String DLQ_QUEUE=
             "summarization.content-extracted.dlq";
+
     public static final String DLQ_ROUTING_KEY=
             "content-extracted.dlq";
 
@@ -82,6 +92,14 @@ public class RabbitMQConfig {
                 .bind(deadLetterQueue())
                 .to(dlqExchange())
                 .with(DLQ_ROUTING_KEY);
+    }
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory){
+        RabbitTemplate template=new RabbitTemplate(connectionFactory);
+
+        template.setMandatory(true);
+        return template;
     }
 
 }

@@ -18,6 +18,12 @@ public class RabbitMQConfig {
 
     public static final String LINK_SUBMITTED_ROUTING_KEY="link.submitted.v1";
 
+    public static final String SUMMARY_GENERATED_QUEUE =
+            "link.summary-generated";
+
+    public static final String SUMMARY_GENERATED_ROUTING_KEY =
+            "summary.generated.v1";
+
     @Bean
     public TopicExchange linkEventsExchange() {
         return new TopicExchange(LINK_EVENTS_EXCHANGE,true,false);
@@ -36,5 +42,21 @@ public class RabbitMQConfig {
                 .bind(extractionQueue)
                 .to(linkEventsExchange)
                 .with(LINK_SUBMITTED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue summaryGeneratedQueue() {
+        return new Queue(SUMMARY_GENERATED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding summaryGeneratedBinding(
+            Queue summaryGeneratedQueue,
+            TopicExchange linkEventsExchange) {
+
+        return BindingBuilder
+                .bind(summaryGeneratedQueue)
+                .to(linkEventsExchange)
+                .with(SUMMARY_GENERATED_ROUTING_KEY);
     }
 }
