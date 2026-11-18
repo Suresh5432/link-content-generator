@@ -9,6 +9,7 @@ import com.linklens.summarizationservice.repo.ProcessedEventRepository;
 import com.linklens.summarizationservice.repo.SummaryOutboxRepository;
 import com.linklens.summarizationservice.repo.SummaryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SummaryPersistenceService {
 
     private final SummaryRepository summaryRepository;
@@ -38,6 +40,7 @@ public class SummaryPersistenceService {
             String title,
             SummaryResult result){
         if(processedEventRepository.existsByEventId(sourceEventId)){
+            log.info("Skipping persistence for already processed summary event {}", sourceEventId);
             return;
         }
 
@@ -60,6 +63,7 @@ public class SummaryPersistenceService {
                 .build();
 
         summaryRepository.save(summary);
+        log.debug("Saved summary {} for link {}", summary.getId(), linkId);
 
         SummaryGeneratedEvent event=new SummaryGeneratedEvent(
                 UUID.randomUUID(),
@@ -88,8 +92,10 @@ public class SummaryPersistenceService {
                             "content.extracted.v1"
                     )
             );
+            log.debug("Queued summary generated event for link {}", linkId);
         }
         catch (Exception exception){
+            log.error("Unable to create summary generated outbox event for link {}", linkId, exception);
             throw new IllegalStateException("Unable to serialize summary event", exception);
         }
     }

@@ -5,6 +5,7 @@ import com.linklens.extractionservice.exception.ExtractionException;
 import com.linklens.extractionservice.exception.RetryableExtractionException;
 import com.linklens.extractionservice.exception.UnsafeUrlException;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 @Component
+@Slf4j
 public class SafeWebFetcher {
 
     private final UrlSafetyValidator urlSafetyValidator;
@@ -49,6 +51,7 @@ public class SafeWebFetcher {
             int statusCode=response.statusCode();
 
             if (isRedirect(statusCode)){
+                log.debug("Received HTTP redirect {} while fetching webpage", statusCode);
                 closeBody(response.body());
 
                 String location=response
@@ -72,11 +75,13 @@ public class SafeWebFetcher {
                 continue;
             }
             if (statusCode==429||statusCode>=500){
+                log.warn("Target website returned retryable HTTP status {}", statusCode);
                 closeBody(response.body());
                 throw new RetryableExtractionException("The website is temporarily unavailable");
             }
 
             if(statusCode<200||statusCode>=300){
+                log.warn("Target website returned unsuccessful HTTP status {}", statusCode);
                 closeBody(response.body());
                 throw new ExtractionException("WebSite returned HTTP status "+ statusCode);
             }
@@ -131,9 +136,11 @@ public class SafeWebFetcher {
         }
         catch (InterruptedException exception){
             Thread.currentThread().interrupt();
+            log.warn("Webpage request was interrupted", exception);
             throw new RetryableExtractionException("Webpage fetching was interrupted");
         }
         catch (IOException exception){
+            log.warn("Unable to connect to target website", exception);
             throw new RetryableExtractionException("Unable to connect to the target website");
         }
     }
@@ -161,6 +168,7 @@ public class SafeWebFetcher {
             return output.toByteArray();
         }
         catch (IOException e) {
+            log.warn("Failed while reading webpage response", e);
             throw new RetryableExtractionException("Failed while reading webpage content");
         }
     }

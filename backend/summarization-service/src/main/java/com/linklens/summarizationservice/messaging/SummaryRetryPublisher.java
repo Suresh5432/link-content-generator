@@ -8,12 +8,14 @@ import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class SummaryRetryPublisher {
 
     private static final String RETRY_COUNT_HEADER="x-retry-cout";
@@ -26,6 +28,7 @@ public class SummaryRetryPublisher {
         int retryCount = getRetryCount(original);
 
         if (retryCount >= MAX_RETRIES) {
+            log.warn("Summary event exceeded retry limit; sending to DLQ");
             sendToDlq(original, "Maximum retry attempts exceeded");
             return;
         }
@@ -40,6 +43,7 @@ public class SummaryRetryPublisher {
                 RabbitMQConfig.RETRY_ROUTING_KEY,
                 retryMessage
         );
+        log.info("Published summary event to retry queue (attempt {})", retryCount + 1);
     }
 
     public void sendToDlq(Message original, String reason) throws Exception {
@@ -55,6 +59,7 @@ public class SummaryRetryPublisher {
                 deadLetterMassage
 
         );
+        log.warn("Published summary event to DLQ: {}", reason);
     }
 
     private int getRetryCount(Message message){
@@ -93,12 +98,14 @@ public class SummaryRetryPublisher {
                 .get(5, TimeUnit.SECONDS);
 
         if (!confirm.ack()){
+            log.error("RabbitMQ did not confirm summary retry/DLQ message {}", messageId);
             throw new IllegalStateException(
                     "RabbitMQ did not confirm the message"
             );
         }
 
         if (correlationData.getReturned()!=null){
+            log.error("RabbitMQ returned unroutable summary retry/DLQ message {}", messageId);
             throw new IllegalStateException(
                     "RabbitMQ returned an unroutable message"
             );

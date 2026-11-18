@@ -5,11 +5,13 @@ import com.google.genai.types.GenerateContentResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
 @Component
+@Slf4j
 @ConditionalOnProperty(
         name = "summarization.ai.provider",
         havingValue = "gemini",
@@ -37,6 +39,7 @@ public class GeminiAiProvider implements AiProvider {
         try{
             GenerateContentResponse response=
                     client.models.generateContent(model,prompt,null);
+            log.debug("Received Gemini response for model {}", model);
 
             String responseText=response.text();
             if (responseText==null || responseText.isBlank()){
@@ -64,6 +67,7 @@ public class GeminiAiProvider implements AiProvider {
             );
         }
         catch (Exception exception){
+            log.error("Gemini summarization request failed for model {}", model, exception);
             throw new IllegalStateException("Gemini summarization failed", exception);
         }
     }

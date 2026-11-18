@@ -6,6 +6,7 @@ import com.linklens.linkservice.dto.PagedResponse;
 import com.linklens.linkservice.service.LinkService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
+@Slf4j
 @RequestMapping("/api/v1/links")
 public class LinkController {
 
@@ -35,6 +37,7 @@ public class LinkController {
                 jwt.getSubject(),
                 idempotencyKey
         );
+        log.debug("Created link request completed for user {} with link {}", jwt.getSubject(), linkResponse.getId());
 
         URI location =URI.create(
                 "/api/v1/links"+linkResponse.getId()
@@ -48,11 +51,13 @@ public class LinkController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal Jwt jwt){
-        return ResponseEntity.ok(linkService.getLinks(
+        PagedResponse<LinkResponse> response = linkService.getLinks(
                 jwt.getSubject(),
                 page,
                 size
-        ));
+        );
+        log.debug("Listed links for user {} (page {}, size {})", jwt.getSubject(), page, size);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
@@ -60,7 +65,9 @@ public class LinkController {
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt){
 
-        return ResponseEntity.ok(linkService.getLink(id, jwt.getSubject()));
+        LinkResponse response = linkService.getLink(id, jwt.getSubject());
+        log.debug("Retrieved link {} for user {}", id, jwt.getSubject());
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
@@ -68,6 +75,7 @@ public class LinkController {
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt){
         linkService.deleteLink(id, jwt.getSubject());
+        log.debug("Deleted link {} for user {}", id, jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
 }

@@ -7,11 +7,13 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
 
 @Component
+@Slf4j
 public class ExtractionContentClient {
 
     private final RestClient restClient;
@@ -39,13 +41,15 @@ public class ExtractionContentClient {
         );
 
         if (authorizedClient == null){
+            log.error("Unable to obtain access token for extraction service content request {}", contentId);
             throw new IllegalStateException("Unable to obtain Extraction Service access token");
         }
 
         String accessToken=authorizedClient.getAccessToken()
                 .getTokenValue();
 
-        return restClient.get()
+        try {
+        ExtractedContentResponse content = restClient.get()
                 .uri("/internal/v1/contents/{contentId}",contentId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer "+accessToken)
                 .retrieve()
@@ -56,6 +60,12 @@ public class ExtractionContentClient {
                                 );
                         })
                 .body(ExtractedContentResponse.class);
+        log.debug("Retrieved extracted content {} from extraction service", contentId);
+        return content;
+        } catch (RuntimeException exception) {
+            log.error("Failed to retrieve extracted content {} from extraction service", contentId, exception);
+            throw exception;
+        }
     }
 
 }

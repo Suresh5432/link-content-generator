@@ -9,6 +9,7 @@ import com.linklens.extractionservice.repo.ExtractionContentRepository;
 import com.linklens.extractionservice.repo.ExtractionOutboxRepository;
 import com.linklens.extractionservice.repo.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ExtractionPersistenceService {
 
     private final ExtractionContentRepository extractionContentRepository;
@@ -37,6 +39,7 @@ public class ExtractionPersistenceService {
             ExtractedPage page){
 
         if (processedEventRepository.existsByEventId(eventId)){
+            log.info("Skipping persistence for already processed extraction event {}", eventId);
             return extractionContentRepository.findByLinkId(linkId)
                     .orElseThrow()
                     .getId();
@@ -63,6 +66,7 @@ public class ExtractionPersistenceService {
                 .build();
 
         extractionContentRepository.save(content);
+        log.debug("Saved extracted content {} for link {}", contentId, linkId);
 
         ContentExtractedEvent event =new ContentExtractedEvent(
                 UUID.randomUUID(),
@@ -93,7 +97,9 @@ public class ExtractionPersistenceService {
                             .eventId(eventId)
                             .eventType("content.extracted.v1")
                             .build());
+            log.debug("Queued content extracted event for link {}", linkId);
         } catch (Exception e) {
+            log.error("Unable to create content extracted outbox event for link {}", linkId, e);
             throw new IllegalArgumentException("Unable to serialize extraction event", e);
         }
 

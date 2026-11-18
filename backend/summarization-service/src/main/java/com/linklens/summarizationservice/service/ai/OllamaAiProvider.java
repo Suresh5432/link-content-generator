@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.ObjectMapper;
@@ -11,6 +12,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 
 @Component
+@Slf4j
 @ConditionalOnProperty(
         name = "summarization.ai.provider",
         havingValue = "ollama",
@@ -60,6 +62,7 @@ public class OllamaAiProvider implements AiProvider {
                     .body(ollamaRequest)
                     .retrieve()
                     .body(OllamaResponse.class);
+            log.debug("Received Ollama response for model {}", model);
 
             if (response==null ||
                     response.response()==null ||
@@ -84,11 +87,13 @@ public class OllamaAiProvider implements AiProvider {
             );
         }
         catch (RestClientException exception){
+            log.error("Unable to communicate with Ollama for model {}", model, exception);
             throw new IllegalStateException(
                     "Unable to communicate with Ollama", exception
             );
         }
         catch (Exception ex){
+            log.error("Unable to parse Ollama response for model {}", model, ex);
             throw new IllegalStateException(
                     "Unable to parse Ollama summarization response", ex
             );
