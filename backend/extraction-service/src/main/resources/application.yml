@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: extraction-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
 
   datasource:
     url: ${EXTRACTION_DB_URL:jdbc:postgresql://localhost:5432/extraction_db}

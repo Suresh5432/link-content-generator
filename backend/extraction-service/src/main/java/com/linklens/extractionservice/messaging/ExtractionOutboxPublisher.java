@@ -79,7 +79,11 @@ public class ExtractionOutboxPublisher {
                 throw  new IllegalStateException("RabbitMQ returned the event because it was unroutable ");
             }
             event.markPublished();
-            log.debug("Published extraction outbox event {}", event.getId());
+            log.info(
+                    "Successfully published extraction event. Event ID: {}, Event Type: {}",
+                    event.getId(),
+                    event.getEventType()
+            );
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -15,7 +15,7 @@ spring:
               -  extraction.read
         provider:
           keycloak:
-            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/link-context/openid-connect/token}
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/link-context/protocol/openid-connect/token}
   application:
     name: summarization-service
   datasource:

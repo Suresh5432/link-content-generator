@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class SummaryRetryPublisher {
 
-    private static final String RETRY_COUNT_HEADER="x-retry-cout";
+    private static final String RETRY_COUNT_HEADER="x-retry-count";
 
     private static final int MAX_RETRIES=3;
 
