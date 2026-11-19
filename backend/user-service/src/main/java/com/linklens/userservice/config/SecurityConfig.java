@@ -23,10 +23,13 @@ public class SecurityConfig {
                                  "/actuator/health",
                                  "/actuator/health/**").permitAll()
                                  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                 .requestMatchers("/internal/v1/**").hasAnyAuthority("SCOPE_users.read")
+                                 .requestMatchers("/api/v1/**").hasAnyAuthority("ROLE_USER")
                                  .anyRequest().authenticated()
                  )
                  .oauth2ResourceServer(oauth2->
-                         oauth2.jwt(jwt->{})
+                         oauth2.jwt(jwt->
+                                 jwt.jwtAuthenticationConverter(new JwtAuthConverter()))
                  )
                  .build();
 
