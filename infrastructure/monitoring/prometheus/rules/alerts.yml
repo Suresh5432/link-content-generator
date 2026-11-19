@@ -1,0 +1,79 @@
+
+groups:
+  - name: microservice-alerts
+    rules:
+
+      - alert: MicroserviceDown
+        expr: up{job=~"link_service|extraction-service|summarization-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Microservice is DOWN"
+          description: "{{ $labels.job }} is unavailable."
+
+      - alert: HighJvmHeapUsage
+        expr: |
+          (
+            sum by (application) (
+              jvm_memory_used_bytes{area="heap"}
+            )
+            /
+            sum by (application) (
+              jvm_memory_max_bytes{area="heap"}
+            )
+          ) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage"
+          description: "{{ $labels.application }} heap usage exceeds 85%."
+
+      - alert: HighHttp5xxRate
+        expr: |
+          sum by (application) (
+            rate(http_server_requests_seconds_count{status=~"5.."}[5m])
+          ) > 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "{{ $labels.application }} is returning more than one 5xx response per second."
+
+      - alert: HighHttpLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (application, le) (
+              rate(http_server_requests_seconds_bucket[5m])
+            )
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency"
+          description: "{{ $labels.application }} p95 response time exceeds 2 seconds."
+
+      - alert: RabbitMQQueueBacklog
+        expr: rabbitmq_queue_messages_ready > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ queue backlog"
+          description: "Queue {{ $labels.queue }} has more than 100 ready messages."
+
+      - alert: RabbitMQDeadLetterMessages
+        expr: |
+          rabbitmq_queue_messages{
+            queue=~".*\\.dlq"
+          } > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Messages detected in a DLQ"
+          description: "Queue {{ $labels.queue }} contains dead-letter messages."

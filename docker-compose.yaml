@@ -1,4 +1,17 @@
+
 services:
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: lcg-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./infrastructure/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./infrastructure/monitoring/alertmanager/secrets/gmail-app-password:/etc/alertmanager/secrets/gmail-app-password:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
 
   postgres:
     image: postgres:18
@@ -31,6 +44,7 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "15692:15692"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -93,9 +107,13 @@ services:
       - "9090:9090"
     volumes:
       - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - messaging-network
 
   grafana:
     image: grafana/grafana:latest

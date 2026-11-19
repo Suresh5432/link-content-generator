@@ -48,14 +48,24 @@ spring:
         max-concurrency: 3
         concurrency: 1
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       probes:
         enabled: true
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+      show-details: when_authorized
+
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
 summarization:
   content-service:
     base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}

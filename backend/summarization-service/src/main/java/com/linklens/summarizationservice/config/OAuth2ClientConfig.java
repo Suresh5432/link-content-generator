@@ -19,6 +19,7 @@ public class OAuth2ClientConfig {
                 .authorizeHttpRequests(auth->
                         auth.requestMatchers("/actuator/health",
                                         "/actuator/health/**",
+                                        "/actuator/prometheus",
                                         "/actuator/info").permitAll()
                                 .anyRequest().permitAll()
                 )

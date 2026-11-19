@@ -39,7 +39,8 @@ public class LinkSecurityConfig {
                         auth
                                 .requestMatchers("/actuator/health",
                                         "/actuator/health/**",
-                                        "/actuator/info"
+                                        "/actuator/info",
+                                        "/actuator/prometheus"
                                 ).permitAll()
                                 .requestMatchers("/api/v1/**").authenticated()
                                 .anyRequest().authenticated()

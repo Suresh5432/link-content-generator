@@ -1,0 +1,23 @@
+global:
+  resolve_timeout: 5m
+
+  smtp_smarthost: "smtp.gmail.com:587"
+  smtp_from: "katravathsuresh8917@gmail.com"
+  smtp_auth_username: "katravathsuresh8917@gmail.com"
+  smtp_auth_password_file: "/etc/alertmanager/secrets/gmail-app-password"
+  smtp_require_tls: true
+
+route:
+  receiver: email-notifications
+  group_by:
+    - alertname
+    - job
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: email-notifications
+    email_configs:
+      - to: "sureshkatravath158@gmail.com"
+        send_resolved: true

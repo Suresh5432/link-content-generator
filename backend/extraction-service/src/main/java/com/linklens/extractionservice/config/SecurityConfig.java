@@ -20,8 +20,14 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth->
-                        auth.requestMatchers("/actuator/health/**").permitAll()
-                                .requestMatchers(HttpMethod.GET,"/internal/v1/contents/**").hasAnyAuthority("SCOPE_extraction.read")
+                        auth.requestMatchers(
+                                        "/actuator/health",
+                                        "/actuator/health/**",
+                                        "/actuator/info",
+                                        "/actuator/prometheus"
+                                ).permitAll()
+                                .requestMatchers(HttpMethod.GET,"/internal/v1/contents/**")
+                                .hasAnyAuthority("SCOPE_extraction.read")
                                 .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2->

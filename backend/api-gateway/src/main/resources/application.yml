@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: api-gateway
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:  health,info,prometheus,metrics
+
+
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+
+  metrics:
+    tags:
+      applications: ${spring.application.name}
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
