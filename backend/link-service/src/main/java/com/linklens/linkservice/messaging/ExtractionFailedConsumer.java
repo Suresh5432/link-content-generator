@@ -24,6 +24,8 @@ public class ExtractionFailedConsumer {
 
     private final LinkFailureService linkFailureService;
 
+    private final FailureEventRetryPublisher failureEventRetryPublisher;
+
     @RabbitListener(
             queues = RabbitMQConfig.EXTRACTION_FAILED_QUEUE,
             ackMode = "MANUAL")
@@ -71,7 +73,14 @@ public class ExtractionFailedConsumer {
                     "Failed to process extraction failure event",e
             );
 
-            channel.basicNack(deliveryTag, false, true);
+            failureEventRetryPublisher.retry(
+                    message,
+                    RabbitMQConfig.EXTRACTION_FAILED_ROUTING_KEY,
+                    RabbitMQConfig.EXTRACTION_FAILURE_RETRY_QUEUE,
+                    RabbitMQConfig.EXTRACTION_FAILED_ROUTING_KEY
+            );
+
+            channel.basicAck(deliveryTag, false);
         }
     }
 }

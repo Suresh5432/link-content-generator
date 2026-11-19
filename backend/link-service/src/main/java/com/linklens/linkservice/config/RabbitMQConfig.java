@@ -50,6 +50,28 @@ public class RabbitMQConfig {
     public static final String SUMMARIZATION_FAILED_ROUTING_KEY=
             "summarization.failed.v1";
 
+    public static final String FAILURE_RETRY_EXCHANGE =
+            "link.failure.retry";
+
+    public static final String EXTRACTION_FAILURE_RETRY_QUEUE =
+            "link.extraction-failed.retry";
+
+    public static final String SUMMARIZATION_FAILURE_RETRY_QUEUE =
+            "link.summarization-failed.retry";
+
+    public static final String FAILURE_DLQ_EXCHANGE =
+            "link.failure.dlq";
+
+    public static final String EXTRACTION_FAILURE_DLQ =
+            "link.extraction-failed.dlq";
+
+    public static final String SUMMARIZATION_FAILURE_DLQ =
+            "link.summarization-failed.dlq";
+
+    public static final int FAILURE_RETRY_DELAY_MS = 10000;
+
+    public static final int MAX_FAILURE_RETRIES = 3;
+
 
     @Bean
     public TopicExchange linkEventsExchange() {
@@ -148,6 +170,82 @@ public class RabbitMQConfig {
         return  BindingBuilder
                 .bind(queue)
                 .to(exchange)
+                .with(SUMMARIZATION_FAILED_ROUTING_KEY);
+    }
+
+    @Bean
+    public DirectExchange failureRetryExchange() {
+        return new DirectExchange(FAILURE_RETRY_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public DirectExchange failureDlqExchange() {
+        return new DirectExchange(FAILURE_DLQ_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue extractionFailureRetryQueue() {
+        return QueueBuilder.durable(EXTRACTION_FAILURE_RETRY_QUEUE)
+                .withArgument("x-message-ttl", FAILURE_RETRY_DELAY_MS)
+                .withArgument("x-dead-letter-exchange", LINK_EVENTS_EXCHANGE)
+                .withArgument(
+                        "x-dead-letter-routing-key",
+                        EXTRACTION_FAILED_ROUTING_KEY
+                )
+                .build();
+    }
+
+    @Bean
+    public Queue summarizationFailureRetryQueue() {
+        return QueueBuilder.durable(SUMMARIZATION_FAILURE_RETRY_QUEUE)
+                .withArgument("x-message-ttl", FAILURE_RETRY_DELAY_MS)
+                .withArgument("x-dead-letter-exchange", LINK_EVENTS_EXCHANGE)
+                .withArgument(
+                        "x-dead-letter-routing-key",
+                        SUMMARIZATION_FAILED_ROUTING_KEY
+                )
+                .build();
+    }
+
+    @Bean
+    public Binding extractionFailureRetryBinding() {
+        return BindingBuilder
+                .bind(extractionFailureRetryQueue())
+                .to(failureRetryExchange())
+                .with(EXTRACTION_FAILED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding summarizationFailureRetryBinding() {
+        return BindingBuilder
+                .bind(summarizationFailureRetryQueue())
+                .to(failureRetryExchange())
+                .with(SUMMARIZATION_FAILED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue extractionFailureDlq() {
+        return new Queue(EXTRACTION_FAILURE_DLQ, true);
+    }
+
+    @Bean
+    public Queue summarizationFailureDlq() {
+        return new Queue(SUMMARIZATION_FAILURE_DLQ, true);
+    }
+
+    @Bean
+    public Binding extractionFailureDlqBinding() {
+        return BindingBuilder
+                .bind(extractionFailureDlq())
+                .to(failureDlqExchange())
+                .with(EXTRACTION_FAILED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding summarizationFailureDlqBinding() {
+        return BindingBuilder
+                .bind(summarizationFailureDlq())
+                .to(failureDlqExchange())
                 .with(SUMMARIZATION_FAILED_ROUTING_KEY);
     }
 }

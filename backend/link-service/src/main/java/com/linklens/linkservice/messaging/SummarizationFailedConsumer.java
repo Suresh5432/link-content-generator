@@ -24,6 +24,8 @@ public class SummarizationFailedConsumer {
 
     private final LinkFailureService linkFailureService;
 
+    private final FailureEventRetryPublisher failureEventRetryPublisher;
+
     @RabbitListener(
             queues = RabbitMQConfig.SUMMARIZATION_FAILED_QUEUE,
             ackMode = "MANUAL")
@@ -72,7 +74,14 @@ public class SummarizationFailedConsumer {
                     "Failed to process summarization failure event",e
             );
 
-            channel.basicNack(deliveryTag, false, true);
+            failureEventRetryPublisher.retry(
+                    message,
+                    RabbitMQConfig.SUMMARIZATION_FAILED_ROUTING_KEY,
+                    RabbitMQConfig.SUMMARIZATION_FAILED_QUEUE,
+                    RabbitMQConfig.SUMMARIZATION_FAILED_ROUTING_KEY
+            );
+
+            channel.basicAck(deliveryTag, false);
         }
     }
 }
