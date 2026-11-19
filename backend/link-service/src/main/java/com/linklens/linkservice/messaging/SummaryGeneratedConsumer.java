@@ -7,7 +7,9 @@ import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
@@ -20,9 +22,13 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class SummaryGeneratedConsumer {
 
+    private static final String RETRY_HEADER="x-retry-count";
+
     private final ObjectMapper objectMapper;
 
     private final SummaryGeneratedService summaryGeneratedService;
+
+    private final RabbitTemplate rabbitTemplate;
 
     @RabbitListener(
             queues = RabbitMQConfig.SUMMARY_GENERATED_QUEUE,
@@ -44,12 +50,77 @@ public class SummaryGeneratedConsumer {
             summaryGeneratedService.process(event);
 
             channel.basicAck(deliveryTag, false);
+
+            log.info("Acknowledged summary event {}", event.eventId());
+
         }
         catch (Exception e) {
 
             log.error("Failed to process summary generated event",e);
 
-            channel.basicNack(deliveryTag, false, true);
+            try {
+
+                handleFailure(message, deliveryTag,channel,e);
+
+            }
+            catch (Exception publishingException){
+
+                log.error("Failed to forward message for retry/DLQ",publishingException);
+
+                channel.basicNack(deliveryTag, false, true);
+            }
+        }
+    }
+
+    private void handleFailure(
+            Message message,
+            long deliveryTag,
+            Channel channel,
+            Exception exception) throws IOException {
+
+        Object retryHeader=message.getMessageProperties()
+                .getHeaders()
+                .get(RETRY_HEADER);
+
+        int retryCount=retryHeader instanceof Number
+                ?((Number)retryHeader).intValue()
+                :0;
+
+        if (retryCount<RabbitMQConfig.MAX_RETRY_ATTEMPTS) {
+
+            int nextAttempts=retryCount+1;
+
+            Message retryMessage= MessageBuilder
+                    .fromMessage(message)
+                    .setHeader(RETRY_HEADER,nextAttempts)
+                    .build();
+
+            rabbitTemplate.send(
+                    "",
+                    RabbitMQConfig.SUMMARY_RETRY_QUEUE,
+                    retryMessage);
+
+            channel.basicAck(deliveryTag, false);
+
+            log.warn(
+                    "Summary event scheduled for retry. Attempts {}/{}",
+                    nextAttempts,
+                    RabbitMQConfig.MAX_RETRY_ATTEMPTS
+            );
+        }
+        else{
+            rabbitTemplate.send(
+                    "",
+                    RabbitMQConfig.SUMMARY_DLQ,
+                    message
+            );
+
+            channel.basicAck(deliveryTag, false);
+
+            log.error(
+                    "Summary event moved to DLQ after {} attempts",
+                    retryCount
+            );
         }
     }
 }
