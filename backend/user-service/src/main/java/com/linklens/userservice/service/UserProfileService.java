@@ -3,6 +3,7 @@ package com.linklens.userservice.service;
 import com.linklens.userservice.dto.UpdateUserProfileRequest;
 import com.linklens.userservice.dto.UserProfileResponse;
 import com.linklens.userservice.entity.UserProfile;
+import com.linklens.userservice.exception.UserProfileNotFoundException;
 import com.linklens.userservice.repo.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,9 +35,16 @@ public class UserProfileService {
                 request.bio(),
                 request.avatarUrl());
 
-        UserProfile savedProfile= repository.save(profile);
 
-        return toResponse(savedProfile);
+        return toResponse( repository.save(profile));
+    }
+
+    @Transactional
+    public UserProfileResponse getProfile(String userId){
+        return repository.findById(userId)
+                .map(this::toResponse)
+                .orElseThrow(()->
+                        new UserProfileNotFoundException(userId));
     }
 
     private UserProfileResponse toResponse(UserProfile profile){
