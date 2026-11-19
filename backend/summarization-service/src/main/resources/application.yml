@@ -47,7 +47,14 @@ spring:
         prefetch: 1
         max-concurrency: 3
         concurrency: 1
+        observation-enabled: true
+    template:
+      observation-enabled: true
 management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
   endpoints:
     web:
       exposure:
@@ -66,6 +73,14 @@ management:
         http:
           server:
             requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
 summarization:
   content-service:
     base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}

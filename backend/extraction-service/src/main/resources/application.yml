@@ -43,12 +43,18 @@ spring:
         prefetch: 1
         concurrency: 2
         max-concurrency: 5
+        observation-enabled: true
     publisher-confirm-type: correlated
     publisher-returns: true
     template:
       mandatory: true
+      observation-enabled: true
     virtual-host: /
 management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
   endpoints:
     web:
       exposure:
@@ -67,6 +73,15 @@ management:
         http:
           server:
             requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+
 
 extraction:
   fetch:

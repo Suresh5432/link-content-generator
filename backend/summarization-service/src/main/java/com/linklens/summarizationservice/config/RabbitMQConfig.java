@@ -37,8 +37,8 @@ public class RabbitMQConfig {
             "content-extracted.dlq";
 
     @Bean
-    public DirectExchange extractionExchange(){
-        return new DirectExchange(EXTRACTION_EXCHANGE, true, false);
+    public TopicExchange extractionExchange(){
+        return new TopicExchange(EXTRACTION_EXCHANGE, true, false);
     }
 
     @Bean
@@ -55,8 +55,8 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public DirectExchange retryExchange(){
-        return new DirectExchange(RETRY_EXCHANGE, true, false);
+    public TopicExchange retryExchange(){
+        return new TopicExchange(RETRY_EXCHANGE, true, false);
     }
 
     @Bean
@@ -77,8 +77,8 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public DirectExchange dlqExchange(){
-        return new DirectExchange(DLQ_EXCHANGE,true,false);
+    public TopicExchange dlqExchange(){
+        return new TopicExchange(DLQ_EXCHANGE,true,false);
     }
 
     @Bean
@@ -96,9 +96,11 @@ public class RabbitMQConfig {
 
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory){
+
         RabbitTemplate template=new RabbitTemplate(connectionFactory);
 
         template.setMandatory(true);
+        template.setObservationEnabled(true);
         return template;
     }
 
