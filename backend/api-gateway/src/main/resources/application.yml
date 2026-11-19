@@ -1,6 +1,31 @@
+server:
+  port: 8084
+
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      password: ${REDIS_PASSWORD:linkpassword}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: link-service
+              uri: ${LINK_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/links/**
 
 management:
   endpoints:
@@ -23,3 +48,9 @@ management:
     metrics:
       export:
         enabled: true
+logging:
+  level:
+    root: INFO
+    com.linklens.apigateway: DEBUG
+    org.springframework.security: INFO
+    org.springframework.cloud.gateway: INFO
