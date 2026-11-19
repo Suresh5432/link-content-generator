@@ -66,7 +66,7 @@ public class SummaryGeneratedService {
 
         ProcessedEvent processedEvent = ProcessedEvent.builder()
                 .eventId(event.eventId())
-                .eventType("Summary.generated.v1")
+                .eventType("summary.generated.v1")
                 .build();
 
         processedEventRepository.save(processedEvent);
