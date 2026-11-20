@@ -14,3 +14,8 @@ CREATE DATABASE summary_db OWNER summary_user;
 -- User Service
 CREATE USER user_user WITH PASSWORD 'user_dev_password';
 CREATE DATABASE user_db OWNER user_user;
+
+--Notification Service
+
+CREATE USER notification_user WITH PASSWORD 'notification_dev_password';
+CREATE DATABASE notification_db OWNER notification_user;
