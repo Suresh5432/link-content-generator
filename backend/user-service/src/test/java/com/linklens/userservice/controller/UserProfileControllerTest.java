@@ -60,7 +60,7 @@ class UserProfileControllerTest {
     @Test
     void shouldReturnCurrentUserProfile() throws Exception {
 
-        when(userProfileService.getOrCreateProfile("keycloak-user-123"))
+        when(userProfileService.getOrCreateProfile("keycloak-user-123", ""))
                 .thenReturn(new UserProfileResponse(
                         "keycloak-user-123",
                         "Suresh",

@@ -18,6 +18,9 @@ public class UserProfile {
     @Column(name = "user_id", nullable = false, length = 255)
     private String userId;
 
+    @Column(name = "email", length = 320)
+    private String email;
+
     @Column(name = "display_name", length = 80)
     private String displayName;
 

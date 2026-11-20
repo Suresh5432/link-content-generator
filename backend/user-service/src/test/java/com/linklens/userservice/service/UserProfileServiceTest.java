@@ -41,7 +41,7 @@ class UserProfileServiceTest {
                 .thenReturn(profile);
 
         UserProfileResponse response =
-                service.getOrCreateProfile(userId);
+                service.getOrCreateProfile(userId,"");
 
         assertEquals(userId, response.userId());
 
@@ -58,7 +58,7 @@ class UserProfileServiceTest {
                 .thenReturn(Optional.of(profile));
 
         UserProfileResponse response =
-                service.getOrCreateProfile(userId);
+                service.getOrCreateProfile(userId,"");
 
         assertEquals(userId, response.userId());
 

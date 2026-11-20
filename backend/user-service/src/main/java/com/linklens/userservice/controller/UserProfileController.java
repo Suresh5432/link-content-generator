@@ -24,7 +24,9 @@ public class UserProfileController {
 
         String userId=jwt.getSubject();
 
-        return ResponseEntity.ok(userProfileService.getOrCreateProfile(userId));
+        String email=jwt.getClaims().get("email").toString();
+
+        return ResponseEntity.ok(userProfileService.getOrCreateProfile(userId, email));
     }
 
     @PatchMapping("/me")

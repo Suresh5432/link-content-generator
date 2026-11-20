@@ -60,12 +60,14 @@ public class EmailDelivery {
     public EmailDelivery(Notification notification,
                          String recipientEmail) {
         this.notification = notification;
-        this.recipientEmail = recipientEmail;
+        this.recipientEmail=recipientEmail;
+        this.nextAttemptAt = Instant.now();
     }
 
     public void markSending(){
         this.status=EmailDeliveryStatus.SENDING;
         this.attemptCount++;
+        this.nextAttemptAt = null;
         this.updatedAt=Instant.now();
     }
 

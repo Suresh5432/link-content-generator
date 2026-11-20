@@ -16,10 +16,14 @@ public class UserProfileService {
     private final UserProfileRepository repository;
 
     @Transactional
-    public UserProfileResponse getOrCreateProfile(String userId){
+    public UserProfileResponse getOrCreateProfile(String userId, String email){
 
         UserProfile profile =repository.findById(userId)
-                .orElseGet(()->repository.save(new UserProfile(userId)));
+                .orElseGet(()->{
+                    UserProfile pro=new UserProfile(userId);
+                    pro.setEmail(email);
+                    return repository.save(pro);
+                });
 
         return toResponse(profile);
     }
