@@ -14,7 +14,7 @@ public class OAuth2ClientConfig {
     public RestClient userServiceRestClient(
             RestClient.Builder builder,
             OAuth2AuthorizedClientManager auth2AuthorizedClientManager,
-            @Value("${USER_SERVICEBASE_URL:http://localhost:8085}") String baseUrl){
+            @Value("${USER_SERVICE_BASE_URL:http://localhost:8085}") String baseUrl){
 
         return builder
                 .baseUrl(baseUrl)

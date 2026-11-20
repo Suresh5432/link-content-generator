@@ -16,16 +16,20 @@ public class UserProfileService {
     private final UserProfileRepository repository;
 
     @Transactional
-    public UserProfileResponse getOrCreateProfile(String userId, String email){
+    public UserProfileResponse getOrCreateProfile(
+            String userId,
+            String email){
 
         UserProfile profile =repository.findById(userId)
-                .orElseGet(()->{
-                    UserProfile pro=new UserProfile(userId);
-                    pro.setEmail(email);
-                    return repository.save(pro);
-                });
+                .orElseGet(()-> new UserProfile(userId));
 
-        return toResponse(profile);
+        if (email!=null &&!email.isBlank()
+                && !email.equals(profile.getEmail())) {
+
+            profile.setEmail(email);
+        }
+
+        return toResponse(repository.save(profile));
     }
 
     @Transactional
@@ -43,8 +47,9 @@ public class UserProfileService {
         return toResponse( repository.save(profile));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public UserProfileResponse getProfile(String userId){
+
         return repository.findById(userId)
                 .map(this::toResponse)
                 .orElseThrow(()->
@@ -55,6 +60,7 @@ public class UserProfileService {
         return new UserProfileResponse(
                 profile.getUserId(),
                 profile.getDisplayName(),
+                profile.getEmail(),
                 profile.getBio(),
                 profile.getAvatarUrl(),
                 profile.getCreatedAt(),

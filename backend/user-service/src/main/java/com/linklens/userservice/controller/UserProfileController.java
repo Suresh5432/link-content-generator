@@ -24,7 +24,7 @@ public class UserProfileController {
 
         String userId=jwt.getSubject();
 
-        String email=jwt.getClaims().get("email").toString();
+        String email=jwt.getClaimAsString("email");
 
         return ResponseEntity.ok(userProfileService.getOrCreateProfile(userId, email));
     }

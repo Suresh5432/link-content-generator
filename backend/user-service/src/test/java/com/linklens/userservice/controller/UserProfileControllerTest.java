@@ -64,6 +64,7 @@ class UserProfileControllerTest {
                 .thenReturn(new UserProfileResponse(
                         "keycloak-user-123",
                         "Suresh",
+                        "katravathsuresh8917@gmail.com",
                         "Java Developer",
                         null,
                         Instant.now(),

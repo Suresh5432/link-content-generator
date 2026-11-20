@@ -1,6 +1,5 @@
 server:
-  port:
-    8086
+  port: 8086
 spring:
   application:
     name: notification-service
@@ -52,7 +51,7 @@ spring:
           user-service:
             provider: keycloak
             client-id: ${KEYCLOAK_CLIENT_ID:link-service}
-            client-secret: ${KEYCLOAK_CLIENT_SECRECT:}
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:}
             authorization-grant-type: client_credentials
             scope:
               -  users.read
