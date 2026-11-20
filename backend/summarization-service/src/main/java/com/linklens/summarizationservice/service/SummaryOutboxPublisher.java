@@ -82,7 +82,7 @@ public class SummaryOutboxPublisher {
 
         MessagePostProcessor processor=message -> {
             message.getMessageProperties()
-                    .setContentType("application./json");
+                    .setContentType("application/json");
 
             message.getMessageProperties()
                     .setDeliveryMode(MessageDeliveryMode.PERSISTENT);

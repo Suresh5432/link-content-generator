@@ -62,7 +62,7 @@ public class Notification {
     private Instant updatedAt;
 
     public void markAsRead(){
-        if (!this.read){
+        if (!Boolean.TRUE.equals(this.read)){
             this.read=true;
             this.readAt=Instant.now();
             this.updatedAt=Instant.now();

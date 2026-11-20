@@ -51,7 +51,7 @@ spring:
           user-service:
             provider: keycloak
             client-id: ${KEYCLOAK_CLIENT_ID:link-service}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+            client-secret: ${KEYCLOAK_CLIENT_SECRET}
             authorization-grant-type: client_credentials
             scope:
               -  users.read
@@ -86,7 +86,10 @@ logging:
 
 notification:
   email:
-    from: ${SMTP_USERNAME:katravathsuresh8917@gmail.com}
+    from: ${SMTP_USERNAME}
   worker:
     poll-interval-ms: 10000
     batch-size: 50
+
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL:http://localhost:8085}

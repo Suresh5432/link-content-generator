@@ -123,6 +123,7 @@ public class NotificationProcessor {
                 .title(title)
                 .message(message)
                 .inAppVisible(inAppEnabled)
+                .read(false)
                 .build();
 
         notificationRepository.save(notification);
