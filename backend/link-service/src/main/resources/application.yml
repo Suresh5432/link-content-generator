@@ -1,22 +1,25 @@
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
    name: link-service
   security:
     oauth2:
       resourceserver:
+  shutdown: graceful
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
   datasource:
     url: ${LINK_DB_URL:jdbc:postgresql://localhost:5432/link_db}
     username: ${LINK_DB_USERNAME:link_user}
-    password: ${LINK_DB_PASSWORD:link_dev_password}
+    password: ${LINK_DB_PASSWORD:${SERVICE_DB_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:linkuser}
-    password: ${RABBITMQ_PASSWORD:linkpassword}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
     publisher-confirm-type: correlated
     publisher-returns: true
     template:
@@ -53,6 +56,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,rabbit
       show-details: when_authorized
 
   metrics:
@@ -66,17 +72,20 @@ management:
 
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
   opentelemetry:
     tracing:
       export:
         otlp:
-          endpoint: http://localhost:4318/v1/traces
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 server:
   port: 8081
 
 logging:
+  structured:
+    format:
+      console: logstash
   level:
     root: info
 
@@ -84,4 +93,3 @@ outbox:
   publisher:
     fixed-delay: 1000
     confirm-timeout: 5s
-

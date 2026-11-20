@@ -23,6 +23,12 @@ public class AiInputValidator {
         if (request.content().length()>maxInputCharacters){
             throw new IllegalArgumentException("Content exceeds the maximum AI input size");
         }
+        if (request.title() != null && request.title().length() > 1000) {
+            throw new IllegalArgumentException("Title exceeds the maximum allowed length");
+        }
+        if (request.language() != null && request.language().length() > 40) {
+            throw new IllegalArgumentException("Language exceeds the maximum allowed length");
+        }
 
         return request;
     }

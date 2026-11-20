@@ -38,7 +38,7 @@ public class ExtractionPersistenceService {
             String sourceUrl,
             ExtractedPage page){
 
-        if (processedEventRepository.existsByEventId(eventId)){
+        if (processedEventRepository.claimEvent(eventId, "content.extracted.v1") == 0){
             log.info("Skipping persistence for already processed extraction event {}", eventId);
             return extractionContentRepository.findByLinkId(linkId)
                     .orElseThrow()
@@ -93,10 +93,6 @@ public class ExtractionPersistenceService {
                             .build();
             extractionOutboxRepository.save(outboxEvent);
 
-            processedEventRepository.save(ProcessedEvent.builder()
-                            .eventId(eventId)
-                            .eventType("content.extracted.v1")
-                            .build());
             log.debug("Queued content extracted event for link {}", linkId);
         } catch (Exception e) {
             log.error("Unable to create content extracted outbox event for link {}", linkId, e);

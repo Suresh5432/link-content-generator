@@ -4,196 +4,111 @@ import com.linklens.extractionservice.config.ExtractionProperties;
 import com.linklens.extractionservice.exception.ExtractionException;
 import com.linklens.extractionservice.exception.RetryableExtractionException;
 import com.linklens.extractionservice.exception.UnsafeUrlException;
-import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.DnsResolver;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.UnknownHostException;
 import java.time.Duration;
 
 @Component
 @Slf4j
 public class SafeWebFetcher {
+    private final UrlSafetyValidator validator;
+    private final ExtractionProperties properties;
 
-    private final UrlSafetyValidator urlSafetyValidator;
-
-    private final ExtractionProperties extractionProperties;
-
-
-    private final HttpClient httpClient;
-
-    public SafeWebFetcher(UrlSafetyValidator urlSafetyValidator, ExtractionProperties extractionProperties,
-                          ExtractionProperties properties) {
-        this.urlSafetyValidator = urlSafetyValidator;
-        this.extractionProperties = extractionProperties;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(
-                        properties.getConnectTimeoutSeconds()))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+    public SafeWebFetcher(UrlSafetyValidator validator, ExtractionProperties properties) {
+        this.validator = validator;
+        this.properties = properties;
     }
 
-    public FetchedPage fetch(String rawUrl){
-
-        URI currentUri=urlSafetyValidator.validate(rawUrl);
-
-        for (int redirectCount=0;
-             redirectCount<= extractionProperties.getMaxRedirects();
-             redirectCount++){
-
-            HttpResponse<InputStream> response = sendRequest(currentUri);
-
-            int statusCode=response.statusCode();
-
-            if (isRedirect(statusCode)){
-                log.debug("Received HTTP redirect {} while fetching webpage", statusCode);
-                closeBody(response.body());
-
-                String location=response
-                        .headers()
-                        .firstValue("Location")
-                        .orElseThrow(()->
-                                new ExtractionException("Redirect without location header"));
-                if ((redirectCount==extractionProperties.getMaxRedirects())){
-                    throw new ExtractionException("Too many redirects");
+    public FetchedPage fetch(String rawUrl) {
+        URI uri = validator.validate(rawUrl);
+        for (int redirects = 0; redirects <= properties.getMaxRedirects(); redirects++) {
+            CloseableHttpClient client = clientPinnedTo(uri);
+            try (client; CloseableHttpResponse response = client.execute(
+                    classicRequest(uri))) {
+                int status = response.getCode();
+                if (isRedirect(status)) {
+                    if (redirects == properties.getMaxRedirects()) throw new ExtractionException("Too many redirects");
+                    var location = response.getFirstHeader("Location");
+                    if (location == null || location.getValue().isBlank()) throw new ExtractionException("Redirect without location header");
+                    try { uri = validator.validate(uri.resolve(location.getValue()).toString()); }
+                    catch (IllegalArgumentException e) { throw new UnsafeUrlException("Invalid redirect URL"); }
+                    continue;
                 }
-
-                try{
-                    URI redirectUri=currentUri.resolve(location);
-
-                    currentUri=urlSafetyValidator
-                            .validate(redirectUri.toString());
-                }
-                catch (IllegalArgumentException ex){
-                    throw new UnsafeUrlException("Invalid redirect URL");
-                }
-                continue;
+                if (status == 429 || status >= 500) throw new RetryableExtractionException("The website is temporarily unavailable");
+                if (status < 200 || status >= 300) throw new ExtractionException("Website returned HTTP status " + status);
+                var entity = response.getEntity();
+                String contentType = response.getFirstHeader("Content-Type") == null ? "" : response.getFirstHeader("Content-Type").getValue();
+                String normalizedType = contentType.toLowerCase(java.util.Locale.ROOT);
+                if (!normalizedType.contains("text/html") && !normalizedType.contains("application/xhtml+xml")) throw new ExtractionException("URL does not point to an HTML page");
+                if (entity == null) throw new ExtractionException("Webpage response was empty");
+                long declaredLength = entity.getContentLength();
+                if (declaredLength > properties.getMaxResponseSizeBytes()) throw new ExtractionException("Webpage is too large");
+                byte[] body = readLimited(entity.getContent());
+                return new FetchedPage(uri.toString(), contentType, body);
+            } catch (UnsafeUrlException | ExtractionException | RetryableExtractionException e) {
+                throw e;
+            } catch (IOException e) {
+                log.warn("Unable to fetch webpage", e);
+                throw new RetryableExtractionException("Unable to connect to the target website");
             }
-            if (statusCode==429||statusCode>=500){
-                log.warn("Target website returned retryable HTTP status {}", statusCode);
-                closeBody(response.body());
-                throw new RetryableExtractionException("The website is temporarily unavailable");
-            }
-
-            if(statusCode<200||statusCode>=300){
-                log.warn("Target website returned unsuccessful HTTP status {}", statusCode);
-                closeBody(response.body());
-                throw new ExtractionException("WebSite returned HTTP status "+ statusCode);
-            }
-
-            String contentType=response
-                    .headers()
-                    .firstValue("Content-Type")
-                    .orElse("");
-
-            String normalizedContentType=contentType.toLowerCase();
-
-            if(!normalizedContentType.contains("text/html")
-                    && !normalizedContentType.contains("application/xhtml+xml")){
-                closeBody(response.body());
-                throw new ExtractionException("URL does not point to an HTML page");
-            }
-
-            long contentLength=response
-                    .headers()
-                    .firstValueAsLong("Content-Length")
-                    .orElse(-1L);
-
-            if (contentLength> extractionProperties.getMaxResponseSizeBytes()){
-                closeBody(response.body());
-                throw new ExtractionException("webpage is too large");
-            }
-
-            byte[] body=readLimited(response.body());
-
-            return new FetchedPage(
-                    currentUri.toString(),
-                    contentType,
-                    body
-            );
         }
         throw new ExtractionException("Unable to fetch webpage");
     }
 
-    private HttpResponse<InputStream> sendRequest(URI uri){
-
-        HttpRequest request=HttpRequest.newBuilder()
-                .uri(uri)
-                .timeout(Duration.ofSeconds(20))
-                .header("User-Agent", "LinkContextGenerator/1.0")
-                .headers("Accept", "text/html, appliction/xhtml+xml")
-                .headers("Accept-Encoding","en-US, en;q=0.9")
-                .GET()
-                .build();
-
-        try{
-            return httpClient.send(request,HttpResponse.BodyHandlers.ofInputStream());
-        }
-        catch (InterruptedException exception){
-            Thread.currentThread().interrupt();
-            log.warn("Webpage request was interrupted", exception);
-            throw new RetryableExtractionException("Webpage fetching was interrupted");
-        }
-        catch (IOException exception){
-            log.warn("Unable to connect to target website", exception);
-            throw new RetryableExtractionException("Unable to connect to the target website");
-        }
+    private CloseableHttpClient clientPinnedTo(URI uri) {
+        final InetAddress[] approved = validator.resolvePublicAddresses(uri.getHost());
+        DnsResolver resolver = new DnsResolver() {
+            @Override public InetAddress[] resolve(String host) throws UnknownHostException {
+                if (!host.equalsIgnoreCase(uri.getHost())) throw new UnknownHostException("Unexpected host");
+                return approved.clone();
+            }
+            @Override public String resolveCanonicalHostname(String host) throws UnknownHostException {
+                if (!host.equalsIgnoreCase(uri.getHost())) throw new UnknownHostException("Unexpected host");
+                return host;
+            }
+        };
+        var manager = PoolingHttpClientConnectionManagerBuilder.create().setDnsResolver(resolver).build();
+        var requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeout.ofSeconds(properties.getConnectTimeoutSeconds()))
+                .setResponseTimeout(Timeout.ofSeconds(properties.getRequestTimeoutSeconds())).build();
+        return HttpClients.custom().setConnectionManager(manager).setDefaultRequestConfig(requestConfig)
+                .disableRedirectHandling().disableAutomaticRetries().disableContentCompression().build();
     }
 
-    private byte[] readLimited(InputStream inputStream) {
+    private org.apache.hc.core5.http.ClassicHttpRequest classicRequest(URI uri) {
+        var request = new org.apache.hc.core5.http.message.BasicClassicHttpRequest("GET", uri);
+        request.setHeader("User-Agent", properties.getUserAgent());
+        request.setHeader("Accept", "text/html, application/xhtml+xml");
+        request.setHeader("Accept-Encoding", "identity");
+        return request;
+    }
 
-        int maxBytes=extractionProperties.getMaxResponseSizeBytes();
-
-        try(InputStream input =inputStream;
-            ByteArrayOutputStream output=new ByteArrayOutputStream()) {
-
-            byte[] buffer=new byte[8192];
-            int totalBytes=0;
-            int bytesRead;
-            while((bytesRead= input.read(buffer))!=-1){
-
-                totalBytes+=bytesRead;
-
-                if(totalBytes>maxBytes){
-                    throw new ExtractionException("Webpage exceeds maximum size");
-                }
-
-                output.write(buffer,0,bytesRead);
+    private byte[] readLimited(java.io.InputStream input) throws IOException {
+        try (input; var output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int total = 0, read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > properties.getMaxResponseSizeBytes()) throw new ExtractionException("Webpage exceeds maximum size");
+                output.write(buffer, 0, read);
             }
             return output.toByteArray();
         }
-        catch (IOException e) {
-            log.warn("Failed while reading webpage response", e);
-            throw new RetryableExtractionException("Failed while reading webpage content");
-        }
     }
 
-    private boolean isRedirect(int statusCode){
-        return statusCode ==301 ||
-                statusCode ==302 ||
-                statusCode==303 ||
-                statusCode==307 ||
-                statusCode==308;
-    }
-
-    private void closeBody(InputStream inputStream){
-        try{
-            inputStream.close();
-        }
-        catch (IOException exception){
-
-        }
-    }
-
-    public record FetchedPage(
-            String finalUrl,
-            String contentType,
-            byte[] body
-    ){}
-
+    private boolean isRedirect(int status) { return status == 301 || status == 302 || status == 303 || status == 307 || status == 308; }
+    public record FetchedPage(String finalUrl, String contentType, byte[] body) { }
 }

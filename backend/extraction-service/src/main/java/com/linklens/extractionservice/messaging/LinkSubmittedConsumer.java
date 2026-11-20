@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
@@ -32,10 +31,7 @@ public class LinkSubmittedConsumer {
 
         long deliveryTag=message.getMessageProperties().getDeliveryTag();
 
-        log.info("========== LINK SUBMISSION EVENT RECEIVED ==========");
-        log.info("Delivery tag: {}", deliveryTag);
-        log.info("Message body: {}",
-                new String(message.getBody(), StandardCharsets.UTF_8));
+        log.debug("Received link submission delivery tag {}", deliveryTag);
 
         LinkSubmittedEvent event;
 

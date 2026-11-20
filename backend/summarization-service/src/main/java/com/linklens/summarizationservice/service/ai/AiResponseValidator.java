@@ -27,6 +27,13 @@ public class AiResponseValidator {
         if (response.keyTakeaways()==null || response.keyTakeaways().isEmpty()){
             throw new IllegalArgumentException("AI must generate at least one key takeaway");
         }
+        if (response.keyTakeaways().size() > MAX_TAKEAWAYS) {
+            throw new IllegalArgumentException("AI returned too many key takeaways");
+        }
+        if (response.provider() == null || response.provider().isBlank()
+                || response.model() == null || response.model().isBlank()) {
+            throw new IllegalArgumentException("AI provider and model metadata are required");
+        }
 
         for (String takeaway : response.keyTakeaways()){
 

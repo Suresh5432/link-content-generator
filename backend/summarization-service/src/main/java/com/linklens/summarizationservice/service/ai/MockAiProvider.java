@@ -8,8 +8,7 @@ import java.util.List;
 @Component
 @ConditionalOnProperty(
         name="summarization.ai.provider",
-        havingValue = "mock",
-        matchIfMissing = true
+        havingValue = "mock"
 )
 public class MockAiProvider implements AiProvider {
 

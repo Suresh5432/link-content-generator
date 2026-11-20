@@ -27,6 +27,7 @@ public class EmailDeliveryWorker {
 
     @Scheduled(fixedDelayString = "${notification.worker.poll-interval-ms}")
     public void processPendingEmails(){
+        emailDeliveryRepository.recoverStuck(Instant.now().minusSeconds(300), Instant.now());
         var deliveries =emailDeliveryRepository.findDueDeliveries(
                 Set.of(
                         EmailDeliveryStatus.PENDING,

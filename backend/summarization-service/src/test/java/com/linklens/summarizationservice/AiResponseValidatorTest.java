@@ -49,4 +49,12 @@ public class AiResponseValidatorTest {
                 () -> validator.validate(response)
         );
     }
+
+    @Test
+    void shouldRejectTooManyTakeawaysAndMissingProviderMetadata() {
+        AiResponse tooMany = new AiResponse("valid", java.util.Collections.nCopies(11, "takeaway"), "OLLAMA", "qwen", null, null);
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(tooMany));
+        AiResponse missingMetadata = new AiResponse("valid", List.of("takeaway"), "", "qwen", null, null);
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(missingMetadata));
+    }
 }

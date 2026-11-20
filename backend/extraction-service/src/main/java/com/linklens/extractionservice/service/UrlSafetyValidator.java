@@ -4,6 +4,7 @@ import com.linklens.extractionservice.exception.UnsafeUrlException;
 import org.springframework.stereotype.Component;
 
 import java.net.*;
+import java.util.Locale;
 
 @Component
 public class UrlSafetyValidator {
@@ -44,13 +45,15 @@ public class UrlSafetyValidator {
             throw new UnsafeUrlException("Custom ports are not allowed");
         }
 
-        String normalizedHost=host.toLowerCase();
+        String normalizedHost=host.toLowerCase(Locale.ROOT);
 
         if (normalizedHost.equals("localhost")
                     || normalizedHost.endsWith(".localhost")
                     ||normalizedHost.endsWith(".local")
-                    || normalizedHost.equals(".internal")
-                    || normalizedHost.equals(".test")){
+                    || normalizedHost.endsWith(".internal")
+                    || normalizedHost.endsWith(".test")
+                    || normalizedHost.endsWith(".invalid")
+                    || normalizedHost.endsWith(".example")){
             throw new UnsafeUrlException("Internal hostname are not allowed");
         }
 
@@ -58,12 +61,12 @@ public class UrlSafetyValidator {
             throw new UnsafeUrlException("Ip address URLs are not allowed");
         }
 
-        validateDnsAddresses(normalizedHost);
+        resolvePublicAddresses(normalizedHost);
 
         return uri;
     }
 
-    private void validateDnsAddresses(String host){
+    public InetAddress[] resolvePublicAddresses(String host){
         try{
             InetAddress[] addresses= InetAddress.getAllByName(host);
 
@@ -76,6 +79,7 @@ public class UrlSafetyValidator {
                     throw new UnsafeUrlException("URL resolves to a restricted network address");
                 }
             }
+            return addresses;
         }
         catch(UnknownHostException e){
             throw new UnsafeUrlException("Unable to resolve hostname");
@@ -119,7 +123,7 @@ public class UrlSafetyValidator {
 
         if (a==10) return true;
 
-        if (a==100 && b>=64 && b<=127) return false;
+        if (a==100 && b>=64 && b<=127) return true;
 
         if(a==127) return true;
 

@@ -4,7 +4,7 @@ groups:
     rules:
 
       - alert: MicroserviceDown
-        expr: up{job=~"link_service|extraction-service|summarization-service"} == 0
+        expr: up{job=~"api-gateway|link-service|extraction-service|summarization-service|user-service|notification-service"} == 0
         for: 1m
         labels:
           severity: critical

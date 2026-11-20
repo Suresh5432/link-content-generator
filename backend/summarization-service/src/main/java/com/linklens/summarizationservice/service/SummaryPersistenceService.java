@@ -39,7 +39,7 @@ public class SummaryPersistenceService {
             String userId,
             String title,
             SummaryResult result){
-        if(processedEventRepository.existsByEventId(sourceEventId)){
+        if(processedEventRepository.claimEvent(sourceEventId, "content.extracted.v1") == 0){
             log.info("Skipping persistence for already processed summary event {}", sourceEventId);
             return;
         }
@@ -86,12 +86,6 @@ public class SummaryPersistenceService {
                     payload)
             );
 
-            processedEventRepository.save(
-                    new ProcessedEvent(
-                            sourceEventId,
-                            "content.extracted.v1"
-                    )
-            );
             log.debug("Queued summary generated event for link {}", linkId);
         }
         catch (Exception exception){

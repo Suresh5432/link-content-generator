@@ -66,6 +66,19 @@ class UserProfileServiceTest {
     }
 
     @Test
+    void verifiedEmailSynchronizationUpdatesEmailButMissingEmailDoesNotEraseIt() {
+        UserProfile profile = new UserProfile(userId);
+        profile.setEmail("verified@example.org");
+        when(repository.findById(userId)).thenReturn(Optional.of(profile));
+        when(repository.save(any(UserProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileResponse refreshed = service.getOrCreateProfile(userId, "new@example.org");
+        assertEquals("new@example.org", refreshed.email());
+        UserProfileResponse withoutClaim = service.getOrCreateProfile(userId, null);
+        assertEquals("new@example.org", withoutClaim.email());
+    }
+
+    @Test
     void shouldUpdateUserProfile() {
 
         UpdateUserProfileRequest request =

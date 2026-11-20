@@ -12,6 +12,13 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,8 +46,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth->
                         auth.requestMatchers(
                                 "/actuator/health",
-                                "/actuator/health/**"
+                                "/actuator/health/**",
+                                "/actuator/prometheus"
                             ).permitAll()
+                .requestMatchers("/internal/**", "/actuator/**").denyAll()
                                 .requestMatchers("/api/v1/admin/**")
                                 .hasAnyRole("ADMIN")
                                 .requestMatchers("/api/v1/**")
@@ -49,6 +58,17 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2->
                         oauth2.jwt(jwt->jwt.jwtAuthenticationConverter(jwtAuthConverter)))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication is required\"}");
+                        })
+                        .accessDeniedHandler((request, response, exception) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access is denied\"}");
+                        }))
                 .addFilterAfter(
                         new RateLimitFilter(rateLimitService),
                         AuthorizationFilter.class
@@ -57,13 +77,20 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(){
+    JwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
+                          @Value("${gateway.security.expected-audience}") String audience) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withIssuerLocation(issuer).build();
+        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, new AudienceValidator(audience)));
+        return decoder;
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(@Value("${gateway.cors.allowed-origins}") String allowedOrigins){
 
         CorsConfiguration configuration=new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
-        );
+        configuration.setAllowedOriginPatterns(java.util.Arrays.stream(allowedOrigins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
 
         configuration.setAllowedMethods(
                 List.of("GET","POST","PUT","PATCH","DELETE")

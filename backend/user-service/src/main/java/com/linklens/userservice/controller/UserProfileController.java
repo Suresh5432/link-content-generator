@@ -24,7 +24,8 @@ public class UserProfileController {
 
         String userId=jwt.getSubject();
 
-        String email=jwt.getClaimAsString("email");
+        Boolean emailVerified = jwt.getClaim("email_verified");
+        String email = Boolean.TRUE.equals(emailVerified) ? jwt.getClaimAsString("email") : null;
 
         return ResponseEntity.ok(userProfileService.getOrCreateProfile(userId, email));
     }

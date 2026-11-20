@@ -1,0 +1,9 @@
+**/target
+.git
+.idea
+.vscode
+.env
+.env.*
+**/*.log
+**/node_modules
+infrastructure/monitoring/alertmanager/secrets

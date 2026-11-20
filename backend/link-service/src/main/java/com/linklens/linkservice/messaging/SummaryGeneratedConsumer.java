@@ -10,12 +10,15 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @Slf4j
@@ -76,7 +79,7 @@ public class SummaryGeneratedConsumer {
             Message message,
             long deliveryTag,
             Channel channel,
-            Exception exception) throws IOException {
+            Exception exception) throws Exception {
 
         Object retryHeader=message.getMessageProperties()
                 .getHeaders()
@@ -95,10 +98,7 @@ public class SummaryGeneratedConsumer {
                     .setHeader(RETRY_HEADER,nextAttempts)
                     .build();
 
-            rabbitTemplate.send(
-                    "",
-                    RabbitMQConfig.SUMMARY_RETRY_QUEUE,
-                    retryMessage);
+            sendAndConfirm(RabbitMQConfig.SUMMARY_RETRY_QUEUE, retryMessage);
 
             channel.basicAck(deliveryTag, false);
 
@@ -109,11 +109,7 @@ public class SummaryGeneratedConsumer {
             );
         }
         else{
-            rabbitTemplate.send(
-                    "",
-                    RabbitMQConfig.SUMMARY_DLQ,
-                    message
-            );
+            sendAndConfirm(RabbitMQConfig.SUMMARY_DLQ, message);
 
             channel.basicAck(deliveryTag, false);
 
@@ -122,5 +118,16 @@ public class SummaryGeneratedConsumer {
                     retryCount
             );
         }
+    }
+
+    private void sendAndConfirm(String queue, Message message) throws Exception {
+        CorrelationData correlation = new CorrelationData(
+                message.getMessageProperties().getMessageId() != null
+                        ? message.getMessageProperties().getMessageId()
+                        : UUID.randomUUID().toString());
+        rabbitTemplate.send("", queue, message, correlation);
+        var confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
+        if (!confirm.ack()) throw new IllegalStateException("RabbitMQ rejected retry/DLQ publish: " + confirm.reason());
+        if (correlation.getReturned() != null) throw new IllegalStateException("Retry/DLQ message was unroutable");
     }
 }

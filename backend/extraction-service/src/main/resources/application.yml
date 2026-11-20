@@ -1,7 +1,10 @@
 server:
+  shutdown: graceful
   port: 8082
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: extraction-service
   security:
@@ -19,7 +22,7 @@ spring:
   datasource:
     url: ${EXTRACTION_DB_URL:jdbc:postgresql://localhost:5432/extraction_db}
     username: ${EXTRACTION_DB_USERNAME:extraction_user}
-    password: ${EXTRACTION_DB_PASSWORD:extraction_dev_password}
+    password: ${EXTRACTION_DB_PASSWORD:${SERVICE_DB_PASSWORD:}}
 
   jpa:
     hibernate:
@@ -35,8 +38,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:linkuser}
-    password: ${RABBITMQ_PASSWORD:linkpassword}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
     listener:
       simple:
         acknowledge-mode: manual
@@ -63,6 +66,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,rabbit
       show-details: when_authorized
 
   metrics:
@@ -75,12 +81,12 @@ management:
             requests: true
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
   opentelemetry:
     tracing:
       export:
         otlp:
-          endpoint: http://localhost:4318/v1/traces
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 
 extraction:
@@ -93,3 +99,9 @@ extraction:
   outbox:
     fixed-delay-ms: 1000
     confirm-timeout-seconds: 5
+
+
+logging:
+  structured:
+    format:
+      console: logstash

@@ -19,4 +19,10 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     Page<Notification> findByUserIdAndInAppVisibleTrueAndReadFalseOrderByCreatedAtDesc(String userId, Pageable pageable);
 
     long countByUserIdAndInAppVisibleTrueAndReadFalse(String UserId);
+
+    Optional<Notification> findByIdAndUserIdAndInAppVisibleTrue(UUID id, String userId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("update Notification n set n.read = true, n.readAt = CURRENT_TIMESTAMP, n.updatedAt = CURRENT_TIMESTAMP where n.userId = :userId and n.inAppVisible = true and n.read = false")
+    int markAllRead(@org.springframework.data.repository.query.Param("userId") String userId);
 }

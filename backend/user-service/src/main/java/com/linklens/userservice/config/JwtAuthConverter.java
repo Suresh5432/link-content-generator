@@ -21,8 +21,7 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
 
-        Collection<GrantedAuthority> authorities=
-                new HashSet<>(scopesConverter.convert(jwt));
+        Collection<GrantedAuthority> authorities = new HashSet<>(scopesConverter.convert(jwt));
 
         Map<String,Object> realmAccess=
                 jwt.getClaim("realm_access");

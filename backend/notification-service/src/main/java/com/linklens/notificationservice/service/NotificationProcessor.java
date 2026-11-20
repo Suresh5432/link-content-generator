@@ -99,7 +99,7 @@ public class NotificationProcessor {
             String title,
             String message){
 
-        if (processedEventRepository.existsByEventId(eventId)){
+        if (processedEventRepository.claimEvent(eventId, eventType) == 0){
 
             log.info("Duplicate event ignored: {}", eventId);
 
@@ -133,8 +133,6 @@ public class NotificationProcessor {
                     new EmailDelivery(notification, null)
             );
         }
-
-        processedEventRepository.save(new ProcessedEvent(eventId, eventType));
 
         log.info(
                 "Notification processed. eventId={}, userId={}, inApp={}, email={}",

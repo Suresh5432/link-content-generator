@@ -52,6 +52,11 @@ public class SummaryGeneratedService {
             return;
         }
 
+        if (link.getStatus() == LinkStatus.EXTRACTION_FAILED || link.getStatus() == LinkStatus.SUMMARIZATION_FAILED || link.getStatus() == LinkStatus.FAILED) {
+            log.info("Ignoring stale summary event {} for failed link {}", event.eventId(), link.getId());
+            recordProcessedEvent(event);
+            return;
+        }
         link.updateStatus(LinkStatus.COMPLETED);
 
         recordProcessedEvent(event);

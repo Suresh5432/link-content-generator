@@ -10,8 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import com.linklens.linkservice.enums.LinkStatus;
 
 import java.net.URI;
 import java.util.UUID;
@@ -39,9 +40,7 @@ public class LinkController {
         );
         log.debug("Created link request completed for user {} with link {}", jwt.getSubject(), linkResponse.getId());
 
-        URI location =URI.create(
-                "/api/v1/links"+linkResponse.getId()
-        );
+        URI location = URI.create("/api/v1/links/" + linkResponse.getId());
 
         return ResponseEntity.created(location).body(linkResponse);
     }
@@ -50,14 +49,19 @@ public class LinkController {
     public ResponseEntity<PagedResponse<LinkResponse>> getLinks(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) LinkStatus status,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction,
             @AuthenticationPrincipal Jwt jwt){
-        PagedResponse<LinkResponse> response = linkService.getLinks(
-                jwt.getSubject(),
-                page,
-                size
-        );
+        PagedResponse<LinkResponse> response = linkService.searchLinks(jwt.getSubject(), page, size, status, q, sortBy, direction);
         log.debug("Listed links for user {} (page {}, size {})", jwt.getSubject(), page, size);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<LinkResponse> retryLink(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(linkService.retryLink(id, jwt.getSubject()));
     }
 
     @GetMapping("/{id}")

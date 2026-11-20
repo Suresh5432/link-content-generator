@@ -1,13 +1,16 @@
 server:
+  shutdown: graceful
   port: 8086
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: notification-service
 
   datasource:
     url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5432/notification_db}
     username: ${NOTIFICATION_DB_USERNAME:notification_user}
-    password: ${NOTIFICATION_DB_PASSWORD:notification_dev_password}
+    password: ${NOTIFICATION_DB_PASSWORD:${SERVICE_DB_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -25,8 +28,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:linkuser}
-    password: ${RABBITMQ_PASSWORD:linkpassword}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
 
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
@@ -50,8 +53,8 @@ spring:
         registration:
           user-service:
             provider: keycloak
-            client-id: ${KEYCLOAK_CLIENT_ID:link-service}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET}
+            client-id: ${NOTIFICATION_CLIENT_ID:link-service}
+            client-secret: ${NOTIFICATION_CLIENT_SECRET}
             authorization-grant-type: client_credentials
             scope:
               -  users.read
@@ -63,6 +66,14 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
 
 management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
   endpoints:
     web:
       exposure:
@@ -71,6 +82,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,rabbit
       show-details: when_authorized
 
   metrics:
@@ -78,6 +92,9 @@ management:
       application: ${spring.application.name}
 
 logging:
+  structured:
+    format:
+      console: logstash
   level:
     com.linklens.notificationservice: INFO
     org.springframework.amqp: INFO

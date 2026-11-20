@@ -21,7 +21,7 @@ public class OAuth2ClientConfig {
                                         "/actuator/health/**",
                                         "/actuator/prometheus",
                                         "/actuator/info").permitAll()
-                                .anyRequest().permitAll()
+                                .anyRequest().denyAll()
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)

@@ -31,7 +31,9 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
-        String correlationId= UUID.randomUUID().toString();
+        String supplied = request.getHeader(CORRELATION_ID);
+        String correlationId = supplied != null && supplied.matches("[A-Za-z0-9._:-]{1,128}")
+                ? supplied : UUID.randomUUID().toString();
 
         MDC.put("correlationId",correlationId);
 

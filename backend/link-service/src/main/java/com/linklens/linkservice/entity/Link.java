@@ -77,6 +77,9 @@ public class Link {
     }
 
     public void updateStatus(LinkStatus status){
+        if (status == null || !canTransition(this.status, status)) {
+            throw new IllegalStateException("Invalid link status transition: " + this.status + " -> " + status);
+        }
         this.status=status;
         this.failureCode=null;
         if(status==LinkStatus.COMPLETED){
@@ -88,6 +91,10 @@ public class Link {
     }
 
     public void markFailed(LinkStatus status,String failureCode){
+        if ((status != LinkStatus.EXTRACTION_FAILED && status != LinkStatus.SUMMARIZATION_FAILED && status != LinkStatus.FAILED)
+                || !canTransition(this.status, status)) {
+            throw new IllegalStateException("Invalid link failure transition: " + this.status + " -> " + status);
+        }
         this.status=status;
         this.failureCode=failureCode;
         this.completedAt=null;
@@ -95,5 +102,18 @@ public class Link {
 
     public void softDelete(){
         this.deletedAt=Instant.now();
+    }
+
+    private boolean canTransition(LinkStatus current, LinkStatus target) {
+        if (current == null) return target == LinkStatus.SUBMITTED || target == LinkStatus.PENDING_EXTRACTION;
+        return switch (current) {
+            case SUBMITTED -> target == LinkStatus.PENDING_EXTRACTION || target == LinkStatus.EXTRACTING || target == LinkStatus.EXTRACTION_FAILED || target == LinkStatus.FAILED;
+            case PENDING_EXTRACTION -> target == LinkStatus.EXTRACTING || target == LinkStatus.EXTRACTED || target == LinkStatus.SUMMARIZING || target == LinkStatus.COMPLETED || target == LinkStatus.EXTRACTION_FAILED || target == LinkStatus.SUMMARIZATION_FAILED || target == LinkStatus.FAILED;
+            case EXTRACTING -> target == LinkStatus.EXTRACTED || target == LinkStatus.SUMMARIZING || target == LinkStatus.COMPLETED || target == LinkStatus.EXTRACTION_FAILED || target == LinkStatus.FAILED;
+            case EXTRACTED -> target == LinkStatus.SUMMARIZING || target == LinkStatus.COMPLETED || target == LinkStatus.SUMMARIZATION_FAILED || target == LinkStatus.FAILED;
+            case SUMMARIZING -> target == LinkStatus.COMPLETED || target == LinkStatus.SUMMARIZATION_FAILED || target == LinkStatus.FAILED;
+            case EXTRACTION_FAILED, SUMMARIZATION_FAILED, FAILED -> target == LinkStatus.PENDING_EXTRACTION;
+            case COMPLETED -> false;
+        };
     }
 }

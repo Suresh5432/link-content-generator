@@ -14,8 +14,7 @@ import java.util.List;
 @Slf4j
 @ConditionalOnProperty(
         name = "summarization.ai.provider",
-        havingValue = "gemini",
-        matchIfMissing = true
+        havingValue = "gemini"
 )
 public class GeminiAiProvider implements AiProvider {
 

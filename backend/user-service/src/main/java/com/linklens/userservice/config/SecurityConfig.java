@@ -2,6 +2,13 @@ package com.linklens.userservice.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -21,7 +28,8 @@ public class SecurityConfig {
                  .authorizeHttpRequests(auth->
                          auth.requestMatchers(
                                  "/actuator/health",
-                                 "/actuator/health/**").permitAll()
+                                 "/actuator/health/**",
+                                 "/actuator/prometheus").permitAll()
                                  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                                  .requestMatchers("/internal/v1/**").hasAnyAuthority("SCOPE_users.read")
                                  .requestMatchers("/api/v1/**").hasAnyAuthority("ROLE_USER")
@@ -34,5 +42,15 @@ public class SecurityConfig {
                  .build();
 
 
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
+            @Value("${security.jwt.expected-audience:${spring.application.name}}") String audience) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withIssuerLocation(issuer).build();
+        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, new AudienceValidator(audience)));
+        return decoder;
     }
 }

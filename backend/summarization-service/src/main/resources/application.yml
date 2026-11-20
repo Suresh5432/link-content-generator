@@ -1,7 +1,10 @@
 server:
+  shutdown: graceful
   port: 8083
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   security:
     oauth2:
       client:
@@ -22,7 +25,7 @@ spring:
   datasource:
     url: ${SUMMARY_DB_URL:jdbc:postgresql://localhost:5432/summary_db}
     username: ${SUMMARY_DB_USERNAME:summary_user}
-    password: ${SUMMARY_DB_PASSWORD:summary_dev_password}
+    password: ${SUMMARY_DB_PASSWORD:${SERVICE_DB_PASSWORD:}}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -37,8 +40,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:linkuser}
-    password: ${RabbitMQ_PASSWORD:linkpassword}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
     publisher-confirm-type: correlated
     publisher-returns: true
     listener:
@@ -63,6 +66,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,rabbit
       show-details: when_authorized
 
   metrics:
@@ -75,26 +81,34 @@ management:
             requests: true
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
   opentelemetry:
     tracing:
       export:
         otlp:
-          endpoint: http://localhost:4318/v1/traces
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 summarization:
   content-service:
     base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
   ai:
-    provider: ollama
-    model: qwen2.5:3b
+    provider: ${AI_PROVIDER:ollama}
+    model: ${AI_MODEL:qwen2.5:3b}
     max-input-characters: 50000
-    timeout-seconds: 120
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
+    max-output-characters: ${AI_MAX_OUTPUT_CHARACTERS:10000}
+    gemini-api-key: ${GEMINI_API_KEY:}
 
   ollama:
-    base-url: http://localhost:11434
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
 
   reading:
     words-per-minite: 200
   outbox:
     fixed-delay-ms: 1000
     confirm-timeout-seconds: 5
+
+
+logging:
+  structured:
+    format:
+      console: logstash

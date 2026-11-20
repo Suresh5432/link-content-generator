@@ -8,6 +8,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.Map;
 @Component
 @Slf4j
 public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationToken> {
+    private final JwtGrantedAuthoritiesConverter scopes = new JwtGrantedAuthoritiesConverter();
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
@@ -27,14 +29,14 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
 
         converter.setJwtGrantedAuthoritiesConverter(this::extractRoles);
 
-        converter.setPrincipalClaimName("preferred_username");
+        converter.setPrincipalClaimName("sub");
 
         return converter.convert(jwt);
     }
 
     private Collection<GrantedAuthority> extractRoles(Jwt jwt) {
 
-        List<GrantedAuthority> authorities = new ArrayList<>();
+        List<GrantedAuthority> authorities = new ArrayList<>(scopes.convert(jwt));
 
         Map<String, Object> realmAccess=jwt.getClaim("realm_access");
 

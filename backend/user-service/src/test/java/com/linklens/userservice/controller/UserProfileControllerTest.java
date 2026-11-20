@@ -60,7 +60,7 @@ class UserProfileControllerTest {
     @Test
     void shouldReturnCurrentUserProfile() throws Exception {
 
-        when(userProfileService.getOrCreateProfile("keycloak-user-123", ""))
+        when(userProfileService.getOrCreateProfile("keycloak-user-123", null))
                 .thenReturn(new UserProfileResponse(
                         "keycloak-user-123",
                         "Suresh",
@@ -78,6 +78,23 @@ class UserProfileControllerTest {
                         .value("keycloak-user-123"))
                 .andExpect(jsonPath("$.displayName")
                         .value("Suresh"));
+        verify(userProfileService).getOrCreateProfile("keycloak-user-123", null);
+    }
+
+    @Test
+    void synchronizesEmailOnlyWhenVerified() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me").with(jwt().jwt(token -> token
+                        .subject("subject-id").claim("email", "person@example.org")
+                        .claim("email_verified", true))))
+                .andExpect(status().isOk());
+        verify(userProfileService).getOrCreateProfile("subject-id", "person@example.org");
+
+        clearInvocations(userProfileService);
+        mockMvc.perform(get("/api/v1/users/me").with(jwt().jwt(token -> token
+                        .subject("subject-id").claim("email", "unverified@example.org")
+                        .claim("email_verified", false))))
+                .andExpect(status().isOk());
+        verify(userProfileService).getOrCreateProfile("subject-id", null);
     }
 
     @Test

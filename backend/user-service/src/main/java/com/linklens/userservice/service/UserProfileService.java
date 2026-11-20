@@ -20,16 +20,18 @@ public class UserProfileService {
             String userId,
             String email){
 
-        UserProfile profile =repository.findById(userId)
-                .orElseGet(()-> new UserProfile(userId));
+        java.util.Optional<UserProfile> existing = repository.findById(userId);
+        UserProfile profile = existing.orElseGet(()-> new UserProfile(userId));
+        boolean changed = existing.isEmpty();
 
         if (email!=null &&!email.isBlank()
                 && !email.equals(profile.getEmail())) {
 
             profile.setEmail(email);
+            changed = true;
         }
 
-        return toResponse(repository.save(profile));
+        return toResponse(changed ? repository.save(profile) : profile);
     }
 
     @Transactional

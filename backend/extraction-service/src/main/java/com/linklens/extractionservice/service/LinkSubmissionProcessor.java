@@ -7,7 +7,6 @@ import com.linklens.extractionservice.repo.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,13 +22,6 @@ public class LinkSubmissionProcessor {
     public void process(LinkSubmittedEvent event){
 
         log.info("Processing link event: {}", event.eventId());
-
-        if (processedEventRepository.existsByEventId(event.eventId())){
-
-            log.info("Event already processed: {}", event.eventId());
-
-            return;
-        }
 
         log.info("Starting webpage extraction: {}", event.url());
 

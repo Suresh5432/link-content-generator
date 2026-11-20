@@ -1,7 +1,13 @@
 server:
+  shutdown: graceful
   port: 8085
 
+security:
+  internal-client-ids: ${INTERNAL_USER_LOOKUP_CLIENT_IDS:extraction-service,summarization-service,notification-service,link-service}
+
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: user-service
 
@@ -13,7 +19,7 @@ spring:
   datasource:
     url: ${USER_DB_URL:jdbc:postgresql://localhost:5432/user_db}
     username: ${USER_DB_USERNAME:user_user}
-    password: ${USER_DB_PASSWORD:user_dev_password}
+    password: ${USER_DB_PASSWORD:${SERVICE_DB_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -26,6 +32,14 @@ spring:
     enabled: true
     locations: classpath:db/migration
 management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
   endpoints:
     web:
       exposure:
@@ -34,6 +48,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db
       show-details: when_authorized
 
   metrics:
@@ -44,3 +61,9 @@ management:
         http:
           server:
             requests: true
+
+
+logging:
+  structured:
+    format:
+      console: logstash

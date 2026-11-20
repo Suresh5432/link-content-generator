@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +52,7 @@ public class LinkService {
 
         if(idempotencyKey!=null){
             var existingLink=linkRepository
-                    .findByUserIdAndIdempotencyKey(userId, idempotencyKey);
+                    .findByUserIdAndIdempotencyKeyAndDeletedAtIsNull(userId, idempotencyKey);
 
             if(existingLink.isPresent()){
                 Link existing=existingLink.get();
@@ -72,6 +73,15 @@ public class LinkService {
                 .idempotencyKey(idempotencyKey)
                 .status(LinkStatus.PENDING_EXTRACTION)
                 .build();
+        if (idempotencyKey != null) linkRepository.lockIdempotencyScope(userId, idempotencyKey);
+        if (idempotencyKey != null) {
+            var raced = linkRepository.findByUserIdAndIdempotencyKeyAndDeletedAtIsNull(userId, idempotencyKey);
+            if (raced.isPresent()) {
+                Link existing = raced.get();
+                if (!existing.getNormalizedUrl().equals(normalizedUrl)) throw new IdempotencyConflictException("Idempotency key was already used for another URL");
+                return mapToResponse(existing);
+            }
+        }
         Link savedLink=linkRepository.save(link);
         LinkSubmittedEvent event =new LinkSubmittedEvent(
                 UUID.randomUUID(),
@@ -173,8 +183,6 @@ public class LinkService {
 
     private String serializedEvent(LinkSubmittedEvent event) {
         try{
-            ObjectMapper objectMapper=new ObjectMapper();
-            objectMapper.registerModule(new JavaTimeModule());
             return objectMapper.writeValueAsString(event);
         }
         catch (JsonProcessingException exception){
@@ -192,6 +200,47 @@ public class LinkService {
                 .createdAt(link.getCreatedAt())
                 .updatedAt(link.getUpdatedAt())
                 .build();
+    }
+
+    @Transactional(readOnly=true)
+    public PagedResponse<LinkResponse> searchLinks(String userId, int page, int size,
+            LinkStatus status, String query, String sortBy, Sort.Direction direction) {
+        validateUserId(userId);
+        validatePage(page, size);
+        if (!java.util.Set.of("createdAt", "updatedAt", "status").contains(sortBy)) {
+            throw new IllegalArgumentException("sortBy must be createdAt, updatedAt, or status");
+        }
+        String term = query == null ? null : query.trim();
+        if (term != null && term.length() > 2048) throw new IllegalArgumentException("Search query is too long");
+        Specification<Link> spec = (root, criteria, cb) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            predicates.add(cb.equal(root.get("userId"), userId));
+            predicates.add(cb.isNull(root.get("deletedAt")));
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (term != null && !term.isEmpty()) predicates.add(cb.like(cb.lower(root.get("originalUrl")), "%" + term.toLowerCase(java.util.Locale.ROOT) + "%"));
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        };
+        Page<Link> links = linkRepository.findAll(spec, PageRequest.of(page, size, Sort.by(direction, sortBy)));
+        return new PagedResponse<>(links.getContent().stream().map(this::mapToResponse).toList(), links.getNumber(), links.getSize(), links.getTotalElements(), links.getTotalPages(), links.isFirst(), links.isLast());
+    }
+
+    @Transactional
+    public LinkResponse retryLink(UUID linkId, String userId) {
+        validateUserId(userId);
+        Link link = linkRepository.findByIdAndUserIdAndDeletedAtIsNull(linkId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Link not found"));
+        if (link.getStatus() != LinkStatus.EXTRACTION_FAILED && link.getStatus() != LinkStatus.SUMMARIZATION_FAILED && link.getStatus() != LinkStatus.FAILED) {
+            throw new IllegalArgumentException("Only failed links can be retried");
+        }
+        link.updateStatus(LinkStatus.PENDING_EXTRACTION);
+        LinkSubmittedEvent event = new LinkSubmittedEvent(UUID.randomUUID(), link.getId(), userId, link.getNormalizedUrl(), Instant.now(), 1);
+        outboxRepository.save(OutboxEvent.builder().id(event.eventId()).aggregateType("LINK").aggregateId(link.getId()).eventType(EventRoutingKey.LINK_SUBMITTED).payload(serializedEvent(event)).build());
+        return mapToResponse(link);
+    }
+
+    private void validatePage(int page, int size) {
+        if (page < 0) throw new IllegalArgumentException("Page must be zero or greater");
+        if (size < 1 || size > 100) throw new IllegalArgumentException("Size must be between 1 and 100");
     }
 
 

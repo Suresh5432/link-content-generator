@@ -75,7 +75,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             filterChain.doFilter(request,response);
 
         }
-        catch (DataAccessException exception){
+        catch (DataAccessException | IllegalStateException exception){
 
             log.error(
                     "Redis unavailable while checking rate limit | userId={}",
