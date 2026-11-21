@@ -30,6 +30,11 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
+    template:
+      observation-enabled: true
+    listener:
+      simple:
+        observation-enabled: true
 
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}

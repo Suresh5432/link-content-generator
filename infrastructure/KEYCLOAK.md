@@ -21,11 +21,11 @@ Set token audience mappers/roles so user tokens include the Gateway audience acc
 
 ## Service clients
 
-Configure confidential service clients with service accounts and client-credentials flow. Store client secrets in `.env` or a deployment secret store, never in Git.
+Configure confidential service clients with service accounts and client-credentials flow. Store client secrets in `.env` or a deployment secret store, never in Git. The local Compose realm has dedicated `extraction-service` and `notification-service` clients; each is client-credentials only and has one service-specific API scope.
 
-- `EXTRACTION_CLIENT_ID` and `EXTRACTION_CLIENT_SECRET`: used by Summarization Service to call Extraction Service.
-- `NOTIFICATION_CLIENT_ID` and `NOTIFICATION_CLIENT_SECRET`: used by Notification Service for authorized user lookup. The example ID is `link-service`; change it to the dedicated client you configure, and update `INTERNAL_USER_LOOKUP_CLIENT_IDS` to allow that client ID.
-- User Service’s `INTERNAL_USER_LOOKUP_CLIENT_IDS` defaults to `notification-service,link-service`. Align this allowlist with the actual client IDs that need lookup; least privilege is recommended.
+- `EXTRACTION_CLIENT_ID=extraction-service` and `EXTRACTION_CLIENT_SECRET`: used by Summarization Service to call Extraction Service. Its default client scope is only `extraction.read`, which emits the `extraction-service` audience.
+- `NOTIFICATION_CLIENT_ID=notification-service` and `NOTIFICATION_CLIENT_SECRET`: used by Notification Service for authorized user lookup. Its default client scope is only `users.read`, which emits the `user-service` audience. `INTERNAL_USER_LOOKUP_CLIENT_IDS` is set to `notification-service`.
+- Keep User Service’s `INTERNAL_USER_LOOKUP_CLIENT_IDS` limited to callers that need profile lookup; local Compose allows only `notification-service`.
 
 The target service must accept the client’s audience and required scope. Confirm the application authorities/claims from actual client-credentials tokens and exercise both allowed and denied lookups before deployment. Client IDs or secrets present in `.env.example` are placeholders/default names, not working credentials.
 

@@ -103,4 +103,13 @@ class UserProfileControllerTest {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void shouldRejectAuthenticatedTokenWithoutSubject() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me")
+                        .with(jwt().jwt(token -> token.subject(null))))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userProfileService);
+    }
 }

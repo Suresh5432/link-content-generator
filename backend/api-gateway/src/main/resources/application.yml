@@ -40,7 +40,7 @@ spring:
             - id: summary-service
               uri: ${SUMMARY_SERVICE_URL:http://localhost:8083}
               predicates:
-                - Path=/api/v1/summaries/**
+                - Path=/api/v1/summaries,/api/v1/summaries/**
           http-client:
             connect-timeout: 3s
             read-timeout: 15s

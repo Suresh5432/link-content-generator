@@ -43,11 +43,13 @@ The package command compiles and packages Maven modules without running tests. T
 ## Service and operational documentation
 
 - [Backend completion report and prioritized checklist](COMPLETION-REPORT.md)
+- [OpenAPI specification for public Gateway APIs](docs/openapi.yaml)
 - [Architecture, APIs, and current implementation status](infrastructure/ARCHITECTURE.md)
 - [Keycloak realm, clients, audiences, and scopes](infrastructure/KEYCLOAK.md)
 - [RabbitMQ exchanges, queues, and event flow](infrastructure/MESSAGING.md)
 - [Deployment, configuration, backup, verification, and troubleshooting](infrastructure/DEPLOYMENT.md)
+- [Docker-host integration and deployment checklist](infrastructure/DOCKER-HOST-CHECKLIST.md)
 
 ## Current limitations
 
-The Gateway contains a summary route, but Summarization Service currently has no public summary retrieval controller. Do not treat summary retrieval through Gateway as available. OpenAPI/Swagger endpoints are not configured in the current Maven projects. Container startup, actual migrations against PostgreSQL, external identity-provider credentials, SMTP delivery, AI provider calls, and end-to-end tracing still require runtime verification; see the deployment guide for the exact checks.
+OpenAPI/Swagger endpoints are not configured in the current Maven projects. All six Compose services now start and report readiness, and service-client token scopes/audiences were verified. Remaining runtime checks include user-token authorization cases, SMTP delivery, actual AI summary generation, RabbitMQ failure/DLQ handling, end-to-end tracing, and the full URL-to-notification workflow; see the deployment guide.

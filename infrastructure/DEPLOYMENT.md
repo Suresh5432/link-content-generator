@@ -1,6 +1,6 @@
 # Local Docker Compose deployment
 
-This guide describes the Compose topology in the repository. For operational checks, backup/recovery and troubleshooting, see [Operations](OPERATIONS.md). Keycloak clients and audiences are described in [Keycloak setup](KEYCLOAK.md); the current API inventory is in [Architecture](ARCHITECTURE.md).
+This guide describes the Compose topology in the repository. For operational checks, backup/recovery and troubleshooting, see [Operations](OPERATIONS.md). The stepwise Docker-host acceptance checklist, including Testcontainers evidence and full-stack runtime checks, is [here](DOCKER-HOST-CHECKLIST.md). Keycloak clients and audiences are described in [Keycloak setup](KEYCLOAK.md); the current API inventory is in [Architecture](ARCHITECTURE.md).
 
 ## Prerequisites and configuration
 
@@ -8,7 +8,8 @@ This guide describes the Compose topology in the repository. For operational che
 - Java/Maven are not required for container startup; each image builds from the repository root.
 - Copy `.env.example` to `.env`; replace all `replace_with_*` and example values with locally managed credentials. Do not commit `.env` or mounted secret files.
 - Configure Keycloak realm `link-context`, issuer, audiences, and service clients as described in [Keycloak setup](KEYCLOAK.md).
-- For Alertmanager email, create `infrastructure/monitoring/alertmanager/secrets/gmail-app-password` with the SMTP app password and configure sender/recipient values. Do not commit it.
+- For notification email, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, and `SMTP_PASSWORD` in the ignored local `.env`. Compose defaults to Gmail on port 587 with authentication and STARTTLS enabled; use an account-specific app password when the provider requires one. The sender address is currently taken from `SMTP_USERNAME`. Without these values, Notification readiness can still pass but aggregate mail health and delivery will fail. Never commit the SMTP password.
+- For Alertmanager email, set `ALERT_SMTP_HOST`, `ALERT_SMTP_PORT`, `ALERT_SMTP_FROM`, `ALERT_SMTP_USERNAME`, and `ALERT_EMAIL_TO` in the ignored `.env` using the names in `.env.example`. Put the SMTP app password in `infrastructure/monitoring/alertmanager/secrets/gmail-app-password`; do not commit either secret. Alertmanager v0.28.1 does not support `--config.expand-env`, so Compose runs `render-config.sh` to validate and render only the non-secret address/host values before startup. A health check confirms the HTTP endpoint, not email delivery.
 
 The Keycloak issuer returned in tokens must exactly equal `KEYCLOAK_ISSUER_URI_DOCKER`, default `http://keycloak:8080/realms/link-context`, and resolve from backend containers. A Keycloak container being healthy does not mean realm, audience, or clients have been provisioned.
 
@@ -52,9 +53,9 @@ Named volumes persist PostgreSQL, RabbitMQ, Redis, Keycloak, Prometheus, Grafana
 
 The following static/local checks have been run during this work:
 
-- `docker compose --env-file .env.example config --quiet` rendered the Compose configuration successfully. Placeholder credentials are only used for config validation.
+- `docker compose --env-file .env.example config --quiet` and `docker compose --env-file .env config --quiet` pass. The local `.env` is ignored and mode 0600; `.env.example` contains placeholders only. Four missing PostgreSQL role passwords were transactionally reconciled and all five role/database connections verified. Dedicated client-credentials Keycloak clients were created and token `azp`, scope, and audience claims checked.
 - `mvn -q -DskipTests package` compiled and packaged the Maven modules.
 - All six backend Dockerfiles were inspected for a Maven build stage, Java 21 runtime, non-root user, memory-aware JVM settings, and an Actuator health check.
 - `git diff --check` completed without whitespace errors.
 
-No containers or persistent volumes were started or changed in this documentation batch. Docker-host checks still required include image builds, service startup/readiness, Flyway migrations against actual PostgreSQL volumes, credential compatibility, token validation against configured Keycloak, RabbitMQ confirms/retries/DLQs, Redis rate limiting, Ollama/Gemini execution, SMTP delivery, Prometheus scrape health, trace propagation, alert delivery, and restore/restart behavior. The runtime acceptance list is in [Operations](OPERATIONS.md#runtime-acceptance-on-a-docker-host).
+All six application images built successfully after correcting each Dockerfile to copy the full Maven reactor; builds used `-DskipTests`. Compose startup completed with `--no-recreate`. On 2026-11-20, all six app containers reported healthy and each in-container readiness endpoint returned `UP`; Gateway readiness returned HTTP 200 and anonymous link access returned 401. Existing PostgreSQL, RabbitMQ, Redis, and Keycloak containers remained healthy. The Qwen model is present; Ollama model-init exited successfully. No existing data volume was deleted or reset; a new Ollama model volume was created. Current Notification Service configuration has no SMTP username/password in the visible `.env`; readiness and aggregate health returned `UP`, but no email was sent and SMTP delivery remains unverified. The three Testcontainers suites passed earlier (Gateway Redis 2, Summary PostgreSQL 1, User PostgreSQL 2). Remaining checks include user JWT authorization matrix, RabbitMQ failure/confirm/DLQ cases, actual AI summary generation, SMTP delivery, full end-to-end workflow, traces/alerts, and backup/restore/restart behavior. The runtime acceptance list is in [Operations](OPERATIONS.md#runtime-acceptance-on-a-docker-host).

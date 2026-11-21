@@ -30,6 +30,9 @@ All public paths below are intended to be called through `http://localhost:8084`
 | `PATCH /api/v1/notifications/read-all` | Mark caller’s notifications read |
 | `GET /api/v1/notifications/preferences` | Read notification preferences |
 | `PUT /api/v1/notifications/preferences` | Replace notification preferences |
+| `GET /api/v1/summaries` | List the authenticated user’s summaries (page, size, sortBy, direction) |
+| `GET /api/v1/summaries/{id}` | Read a summary owned by the authenticated user |
+| `GET /api/v1/summaries/link/{linkId}` | Read the authenticated user’s summary for a link |
 
 The following internal endpoints are not routed by Gateway and should only be called by authorized services:
 
@@ -40,9 +43,8 @@ The following internal endpoints are not routed by Gateway and should only be ca
 
 ### Known API gaps
 
-- Gateway config contains `/api/v1/summaries/**`, but there is no summary read controller in Summarization Service. No summary retrieval API is currently available.
 - No `PATCH /api/v1/links/{id}` endpoint is implemented.
-- Springdoc/Swagger dependencies and OpenAPI endpoint configuration are absent. This file is a hand-maintained API inventory, not a generated OpenAPI contract.
+- The OpenAPI contract is maintained in [`docs/openapi.yaml`](../docs/openapi.yaml). It is not generated or served through Swagger UI by the services; host the static contract with the selected API documentation tool and keep it synchronized with controller changes.
 - Readiness endpoints are intended for container health checks; management exposure and network reachability should be verified on a running deployment.
 
 ## Data ownership

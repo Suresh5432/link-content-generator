@@ -7,6 +7,9 @@ spring:
     timeout-per-shutdown-phase: 30s
   security:
     oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
       client:
         registration:
           extraction-service:
@@ -15,7 +18,7 @@ spring:
             client-secret: ${EXTRACTION_CLIENT_SECRET}
             authorization-grant-type: client_credentials
             scope:
-              -  extraction.read
+              - extraction.read
               - openid
         provider:
           keycloak:
@@ -112,3 +115,7 @@ logging:
   structured:
     format:
       console: logstash
+
+security:
+  jwt:
+    expected-audience: ${KEYCLOAK_EXPECTED_AUDIENCE:summarization-service}

@@ -15,10 +15,15 @@ services:
       - "127.0.0.1:9093:9093"
     volumes:
       - ./infrastructure/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./infrastructure/monitoring/alertmanager/render-config.sh:/etc/alertmanager/render-config.sh:ro
       - ./infrastructure/monitoring/alertmanager/secrets/gmail-app-password:/etc/alertmanager/secrets/gmail-app-password:ro
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--config.expand-env"
+    entrypoint: ["/bin/sh", "/etc/alertmanager/render-config.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres:
     image: postgres:18
@@ -138,7 +143,7 @@ services:
       notification-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/bin/prometheus", "--version"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9090/-/healthy"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -318,6 +323,7 @@ services:
       EXTRACTION_SERVICE_URL: http://extraction-service:8082
       EXTRACTION_CLIENT_ID: ${EXTRACTION_CLIENT_ID:-extraction-service}
       EXTRACTION_CLIENT_SECRET: ${EXTRACTION_CLIENT_SECRET:?EXTRACTION_CLIENT_SECRET is required}
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/link-context/protocol/openid-connect/token
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
       OLLAMA_BASE_URL: http://ollama:11434
@@ -388,8 +394,9 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      KEYCLOAK_CLIENT_ID: ${NOTIFICATION_CLIENT_ID:-link-service}
-      KEYCLOAK_CLIENT_SECRET: ${NOTIFICATION_CLIENT_SECRET:?NOTIFICATION_CLIENT_SECRET is required}
+      NOTIFICATION_CLIENT_ID: ${NOTIFICATION_CLIENT_ID:-notification-service}
+      NOTIFICATION_CLIENT_SECRET: ${NOTIFICATION_CLIENT_SECRET:?NOTIFICATION_CLIENT_SECRET is required}
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/link-context/protocol/openid-connect/token
       USER_SERVICE_BASE_URL: http://user-service:8085
       KEYCLOAK_EXPECTED_AUDIENCE: ${NOTIFICATION_SERVICE_EXPECTED_AUDIENCE:-notification-service}
       SECURITY_JWT_EXPECTED_AUDIENCE: ${NOTIFICATION_SERVICE_EXPECTED_AUDIENCE:-notification-service}

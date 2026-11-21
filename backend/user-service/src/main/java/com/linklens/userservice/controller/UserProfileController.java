@@ -22,7 +22,10 @@ public class UserProfileController {
     public ResponseEntity<UserProfileResponse> getUserProfile(
             @AuthenticationPrincipal Jwt jwt){
 
-        String userId=jwt.getSubject();
+        String userId = authenticatedSubject(jwt);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
 
         Boolean emailVerified = jwt.getClaim("email_verified");
         String email = Boolean.TRUE.equals(emailVerified) ? jwt.getClaimAsString("email") : null;
@@ -35,9 +38,19 @@ public class UserProfileController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody UpdateUserProfileRequest request){
 
-        String userId=jwt.getSubject();
+        String userId = authenticatedSubject(jwt);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
 
         return ResponseEntity.ok(userProfileService.updateProfile(userId,request));
+    }
+
+    private String authenticatedSubject(Jwt jwt) {
+        if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank()) {
+            return null;
+        }
+        return jwt.getSubject();
     }
 
 }

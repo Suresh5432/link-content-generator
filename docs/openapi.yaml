@@ -1,0 +1,424 @@
+openapi: 3.1.0
+info:
+  title: Link Context Generator Public API
+  version: 1.0.0
+  description: Public endpoints served through the API Gateway. Records are scoped to the authenticated token subject.
+servers:
+  - url: http://localhost:8084
+    description: Local Compose Gateway
+security:
+  - bearerAuth: []
+tags:
+  - name: Links
+  - name: User profile
+  - name: Notifications
+  - name: Summaries
+paths:
+  /api/v1/links:
+    post:
+      tags: [Links]
+      summary: Submit a URL for processing
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLinkRequest' }
+      responses:
+        '201':
+          description: Link created or idempotent prior result returned
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Link' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [Links]
+      summary: List current user's links
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/LinkStatus' }
+        - name: q
+          in: query
+          description: Search URL text.
+          schema: { type: string, maxLength: 2048 }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [createdAt, updatedAt, status], default: createdAt }
+        - $ref: '#/components/parameters/Direction'
+      responses:
+        '200':
+          description: Owner-scoped page of links
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagedLinks' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/links/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Links]
+      summary: Get an owned link
+      responses:
+        '200':
+          description: Link details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Link' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Links]
+      summary: Soft-delete an owned link
+      responses:
+        '204': { description: Link deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/links/{id}/retry:
+    post:
+      tags: [Links]
+      summary: Retry a failed link
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Link resubmitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Link' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/users/me:
+    get:
+      tags: [User profile]
+      summary: Get or create the current user's profile
+      description: Email is synchronized only when the JWT email_verified claim is true.
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [User profile]
+      summary: Update editable profile fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserProfileRequest' }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List current user's visible notifications
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Direction'
+      responses:
+        '200':
+          description: Spring Data page ordered by creation time; nested pageable/sort JSON can vary by framework version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpringPageNotifications' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Count current user's unread visible notifications
+      responses:
+        '200':
+          description: Count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count]
+                properties:
+                  count: { type: integer, format: int64 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark an owned notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Marked read }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all current user's notifications as read
+      responses:
+        '200':
+          description: Number of updated rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications/preferences:
+    get:
+      tags: [Notifications]
+      summary: Get notification preferences
+      responses:
+        '200':
+          description: Preferences
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Notifications]
+      summary: Replace notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferencesRequest' }
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/summaries:
+    get:
+      tags: [Summaries]
+      summary: List current user's summaries
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [createdAt, updatedAt, title, readingTimeMinutes], default: createdAt }
+        - $ref: '#/components/parameters/Direction'
+      responses:
+        '200':
+          description: Owner-scoped summary page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagedSummaries' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/summaries/{id}:
+    get:
+      tags: [Summaries]
+      summary: Get an owned summary by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Summary details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Summary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/summaries/link/{linkId}:
+    get:
+      tags: [Summaries]
+      summary: Get current user's summary for a link
+      parameters:
+        - name: linkId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Summary details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Summary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak access token; Gateway checks issuer/audience and public APIs require USER role.
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Zero-based page number.
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Direction:
+      name: direction
+      in: query
+      schema: { type: string, enum: [ASC, DESC], default: DESC }
+  responses:
+    BadRequest: { description: Validation or request parameter error. }
+    Unauthorized: { description: Missing, expired, or invalid bearer token. }
+    Forbidden: { description: Required role or access is missing. }
+    NotFound: { description: Resource is missing or is not owned by the current user. }
+  schemas:
+    CreateLinkRequest:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, minLength: 1, maxLength: 2048, format: uri }
+    LinkStatus:
+      type: string
+      enum: [SUBMITTED, PENDING_EXTRACTION, EXTRACTING, EXTRACTED, SUMMARIZING, COMPLETED, EXTRACTION_FAILED, SUMMARIZATION_FAILED, FAILED]
+    Link:
+      type: object
+      required: [id, url, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        status: { $ref: '#/components/schemas/LinkStatus' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PagedLinks:
+      type: object
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/Link' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        first: { type: boolean }
+        last: { type: boolean }
+    UserProfile:
+      type: object
+      properties:
+        userId: { type: string }
+        displayName: { type: [string, 'null'] }
+        email: { type: [string, 'null'], format: email }
+        bio: { type: [string, 'null'] }
+        avatarUrl: { type: [string, 'null'], format: uri }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        displayName: { type: [string, 'null'], minLength: 1, maxLength: 80 }
+        bio: { type: [string, 'null'], maxLength: 500 }
+        avatarUrl: { type: [string, 'null'], maxLength: 2048, pattern: '^https?://.*' }
+    Notification:
+      type: object
+      required: [id, type, title, message, read, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        linkId: { type: [string, 'null'], format: uuid }
+        type: { type: string, enum: [LINK_SUMMARY_READY, LINK_PROCESSING_FAILED] }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    SpringPageNotifications:
+      type: object
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        size: { type: integer }
+        number: { type: integer }
+        first: { type: boolean }
+        last: { type: boolean }
+        numberOfElements: { type: integer }
+        empty: { type: boolean }
+    NotificationPreferencesRequest:
+      type: object
+      required: [inAppEnabled, emailEnabled]
+      properties:
+        inAppEnabled: { type: boolean }
+        emailEnabled: { type: boolean }
+    NotificationPreferences:
+      type: object
+      required: [inAppEnabled, emailEnabled, updatedAt]
+      properties:
+        inAppEnabled: { type: boolean }
+        emailEnabled: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+    Summary:
+      type: object
+      required: [id, linkId, contentId, summary, keyTakeaways, readingTimeMinutes, wordCount, aiProvider, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        linkId: { type: string, format: uuid }
+        contentId: { type: string, format: uuid }
+        title: { type: [string, 'null'], maxLength: 1000 }
+        summary: { type: string }
+        keyTakeaways: { type: array, items: { type: string } }
+        readingTimeMinutes: { type: integer, minimum: 1 }
+        wordCount: { type: integer, minimum: 0 }
+        aiProvider: { type: string }
+        aiModel: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PagedSummaries:
+      type: object
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/Summary' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        first: { type: boolean }
+        last: { type: boolean }

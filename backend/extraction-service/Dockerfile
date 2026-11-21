@@ -1,8 +1,7 @@
 FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./pom.xml
-COPY backend/common/event-contracts ./backend/common/event-contracts
-COPY backend/extraction-service ./backend/extraction-service
+COPY backend ./backend
 RUN mvn -B -ntp -pl backend/extraction-service -am -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine AS runtime

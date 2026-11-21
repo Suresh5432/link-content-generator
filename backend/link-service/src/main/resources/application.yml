@@ -1,12 +1,15 @@
+server:
+  shutdown: graceful
+  port: 8081
+
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
   application:
-   name: link-service
+    name: link-service
   security:
     oauth2:
       resourceserver:
-  shutdown: graceful
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
   datasource:
@@ -78,9 +81,6 @@ management:
       export:
         otlp:
           endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
-
-server:
-  port: 8081
 
 logging:
   structured:
