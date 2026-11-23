@@ -25,6 +25,13 @@ spring:
             token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/link-context/protocol/openid-connect/token}
   application:
     name: summarization-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  cache:
+    type: redis
   datasource:
     url: ${SUMMARY_DB_URL:jdbc:postgresql://localhost:5432/summary_db}
     username: ${SUMMARY_DB_USERNAME:summary_user}

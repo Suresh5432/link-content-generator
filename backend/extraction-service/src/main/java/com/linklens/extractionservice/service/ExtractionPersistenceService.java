@@ -68,13 +68,16 @@ public class ExtractionPersistenceService {
         extractionContentRepository.save(content);
         log.debug("Saved extracted content {} for link {}", contentId, linkId);
 
+        String dedupUrl = (page.getCanonicalUrl() == null || page.getCanonicalUrl().isBlank())
+                ? sourceUrl : page.getCanonicalUrl();
+
         ContentExtractedEvent event =new ContentExtractedEvent(
                 UUID.randomUUID(),
                 linkId,
                 contentId,
                 userId,
                 page.getTitle(),
-                page.getCanonicalUrl(),
+                dedupUrl,
                 page.getContentType(),
                 page.getWordCount(),
                 Instant.now(),

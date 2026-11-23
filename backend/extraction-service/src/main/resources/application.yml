@@ -105,3 +105,14 @@ logging:
   structured:
     format:
       console: logstash
+
+website-analysis:
+  max-pages: 12
+  max-depth: 2
+  request-timeout-seconds: 15
+  max-response-size-bytes: 2000000
+  max-redirects: 5
+  concurrency: 2
+  overall-timeout-seconds: 120
+  rate-limit-millis: 250
+  robots-enabled: true

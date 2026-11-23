@@ -2,12 +2,14 @@ FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./pom.xml
 COPY backend ./backend
-RUN mvn -B -ntp -pl backend/api-gateway -am -DskipTests package
+RUN mvn -B -ntp -pl backend/api-gateway -am -DskipTests package \
+    && test -s backend/api-gateway/target/api-gateway-0.0.1-SNAPSHOT.jar \
+    && jar tf backend/api-gateway/target/api-gateway-0.0.1-SNAPSHOT.jar >/dev/null
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 RUN addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -G app app
 WORKDIR /app
-COPY --from=build --chown=app:app /workspace/backend/api-gateway/target/*.jar /app/service.jar
+COPY --from=build --chown=app:app /workspace/backend/api-gateway/target/api-gateway-0.0.1-SNAPSHOT.jar /app/service.jar
 USER 10001:10001
 EXPOSE 8084
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseContainerSupport"

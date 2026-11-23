@@ -1,0 +1,157 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --pf-v5-global--primary-color--100: #39765d;
+  --pf-v5-global--primary-color--200: #2f654f;
+  --pf-v5-global--link--Color: #39765d;
+  --pf-v5-global--link--Color--hover: #2f654f;
+  --pf-v5-global--BackgroundColor--100: #f6f7f5;
+  --pf-v5-global--Color--100: #252b27;
+  --pf-v5-global--BorderColor--100: #e5eae5;
+  --link-context-ink: #252b27;
+  --link-context-muted: #858e87;
+  --link-context-green: #39765d;
+  --link-context-surface: #fff;
+  --link-context-line: #e5eae5;
+}
+
+html, body, .login-pf, .login-pf body {
+  min-height: 100%;
+  background: #f6f7f5 !important;
+  color: var(--link-context-ink) !important;
+  font-family: "DM Sans", "Segoe UI", sans-serif !important;
+}
+
+.login-pf body { background-image: none !important; }
+
+#kc-header, #kc-header-wrapper {
+  color: #2f654f !important;
+  font-family: "Manrope", "Segoe UI", sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.7px !important;
+  text-transform: none !important;
+}
+
+.login-pf-page, .pf-v5-c-login { background: transparent !important; }
+
+.card-pf, .pf-v5-c-login__main {
+  border: 1px solid var(--link-context-line) !important;
+  border-top: 3px solid var(--link-context-green) !important;
+  border-radius: 12px !important;
+  background: var(--link-context-surface) !important;
+  box-shadow: 0 14px 40px rgb(34 55 39 / 8%) !important;
+}
+
+.login-pf-page .login-pf-header h1, #kc-page-title, .pf-v5-c-title {
+  color: var(--link-context-ink) !important;
+  font-family: "Manrope", "Segoe UI", sans-serif !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.5px !important;
+}
+
+label, .pf-v5-c-form__label-text { color: #535e55 !important; font-weight: 600 !important; }
+
+input[type="text"], input[type="email"], input[type="password"], .pf-v5-c-form-control {
+  min-height: 42px !important;
+  border: 1px solid #dfe6df !important;
+  border-radius: 7px !important;
+  background: var(--link-context-surface) !important;
+  color: var(--link-context-ink) !important;
+  box-shadow: none !important;
+}
+
+input:focus, .pf-v5-c-form-control:focus {
+  border-color: #78a489 !important;
+  box-shadow: 0 0 0 3px rgb(57 118 93 / 12%) !important;
+}
+
+.pf-v5-c-input-group__item > button[data-password-toggle] {
+  display: grid !important;
+  min-width: 44px !important;
+  min-height: 42px !important;
+  place-items: center !important;
+  padding: 0 12px !important;
+  border: 1px solid #dfe6df !important;
+  border-radius: 0 7px 7px 0 !important;
+  background: #f6f7f5 !important;
+  color: #78877b !important;
+  box-shadow: none !important;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease !important;
+}
+
+.pf-v5-c-input-group__item > button[data-password-toggle]:hover {
+  border-color: #cbdccf !important;
+  background: #edf4ee !important;
+  color: var(--link-context-green) !important;
+}
+
+.pf-v5-c-input-group__item > button[data-password-toggle]:focus-visible {
+  z-index: 1;
+  outline: 3px solid rgb(57 118 93 / 20%) !important;
+  outline-offset: 1px;
+}
+
+.pf-v5-c-input-group__item > button[data-password-toggle] i {
+  font-size: 15px;
+}
+
+#kc-login, button[type="submit"], .pf-v5-c-button.pf-m-primary {
+  min-height: 43px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: #39765d !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+#kc-login:hover, button[type="submit"]:hover, .pf-v5-c-button.pf-m-primary:hover { background: #2f654f !important; }
+a, .pf-v5-c-login__main a { color: #39765d !important; }
+.alert-error, .pf-v5-c-alert.pf-m-danger { border-radius: 7px !important; }
+
+/* Keep the hosted reset form consistent with Link Context's recovery screen. */
+#kc-reset-password-form {
+  display: grid;
+  gap: 18px;
+}
+
+#kc-reset-password-form .pf-v5-c-form__group,
+#kc-reset-password-form .form-group {
+  margin: 0 !important;
+}
+
+#kc-reset-password-form input[type="text"],
+#kc-reset-password-form input[type="email"],
+#kc-reset-password-form .pf-v5-c-form-control {
+  width: 100% !important;
+}
+
+#kc-reset-password-form button[type="submit"],
+#kc-reset-password-form input[type="submit"],
+#kc-reset-password-form .pf-v5-c-button {
+  width: 100% !important;
+}
+
+#kc-reset-password-form #kc-form-options,
+#kc-reset-password-form .pf-v5-c-form__actions {
+  margin-top: 2px;
+}
+
+#kc-reset-password-form a,
+#kc-reset-password-form .pf-v5-c-form__helper-text {
+  font-size: 13px !important;
+}
+
+#kc-reset-password-form input:focus-visible,
+#kc-reset-password-form button:focus-visible,
+#kc-reset-password-form a:focus-visible {
+  outline: 3px solid rgb(57 118 93 / 24%) !important;
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .login-pf-page { padding: 20px 14px !important; }
+  .card-pf, .pf-v5-c-login__main { border-radius: 10px !important; }
+  #kc-reset-password-form { gap: 15px; }
+}

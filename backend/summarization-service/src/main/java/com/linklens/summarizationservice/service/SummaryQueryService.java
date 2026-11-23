@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -23,6 +24,7 @@ public class SummaryQueryService {
 
     private final SummaryRepository summaryRepository;
 
+    @Cacheable(value = "summaries", key = "#userId + ':' + #page + ':' + #size + ':' + #sortBy + ':' + #direction")
     public PagedSummaryResponse<SummaryResponse> list(String userId, int page, int size, String sortBy, Sort.Direction direction) {
         if (page < 0 || size < 1 || size > 100 || !SORT_FIELDS.contains(sortBy)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid pagination or sort parameters");
@@ -33,12 +35,14 @@ public class SummaryQueryService {
         return PagedSummaryResponse.from(responsePage);
     }
 
+    @Cacheable(value = "summary", key = "#userId + ':' + #summaryId")
     public SummaryResponse get(String userId, UUID summaryId) {
         return summaryRepository.findByIdAndUserId(summaryId, userId)
                 .map(SummaryResponse::from)
                 .orElseThrow(() -> notFound());
     }
 
+    @Cacheable(value = "summaryByLink", key = "#userId + ':' + #linkId")
     public SummaryResponse getByLink(String userId, UUID linkId) {
         return summaryRepository.findByLinkIdAndUserId(linkId, userId)
                 .map(SummaryResponse::from)

@@ -29,6 +29,8 @@ docker compose up --build -d
 docker compose ps
 ```
 
+The React frontend is available at `http://localhost:5173` by default. Its public browser settings are supplied at image build time through `FRONTEND_API_BASE_URL`, `FRONTEND_KEYCLOAK_URL`, `FRONTEND_KEYCLOAK_REALM`, and `FRONTEND_KEYCLOAK_CLIENT_ID` in `.env`. Configure the Keycloak public client redirect URI and web origin for `http://localhost:5173/*` and `http://localhost:5173`. Compose uses `http://auth.localhost:8080` for both browser sign-in and backend token validation, with a network alias that lets both sides resolve the same issuer. Gateway CORS uses `CORS_ALLOWED_ORIGINS` and defaults to `http://localhost:5173`.
+
 Only Gateway is published as an application API at `http://localhost:8084`; Compose binds infrastructure and monitoring ports to loopback for local use. To stop without removing data, run `docker compose down`. **Do not use `docker compose down -v` for routine shutdown or upgrades.** PostgreSQL initialization scripts apply only to a fresh data directory. Existing database role credentials are not reset by Compose; see the backup and credential notes in [deployment operations](infrastructure/DEPLOYMENT.md).
 
 ## Build and tests

@@ -26,6 +26,9 @@ public class Summary {
     @Column(name = "content_id", nullable = false)
     private UUID contentId;
 
+    @Column(name = "canonical_url", columnDefinition = "TEXT")
+    private String canonicalUrl;
+
     @Column(name = "user_id", nullable = false)
     private String userId;
 

@@ -57,11 +57,13 @@ public class LinkSecurityConfig {
 
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
             String issuerUri,
+            @Value("${KEYCLOAK_JWK_SET_URI:${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/certs}")
+            String jwkSetUri,
             @Value("${KEYCLOAK_EXPECTED_AUDIENCE}")
             String expectedAudience
     ){
         NimbusJwtDecoder decoder=NimbusJwtDecoder
-                .withIssuerLocation(issuerUri).build();
+                .withJwkSetUri(jwkSetUri).build();
 
         OAuth2TokenValidator<Jwt> issuerValidator=
                 JwtValidators.createDefaultWithIssuer(issuerUri);

@@ -11,6 +11,7 @@ import com.linklens.summarizationservice.repo.SummaryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Setter;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -31,6 +32,17 @@ public class SummaryPersistenceService {
 
     private final ObjectMapper  objectMapper;
 
+    public void save(
+            UUID sourceEventId,
+            UUID linkId,
+            UUID contentId,
+            String userId,
+            String title,
+            SummaryResult result) {
+        save(sourceEventId, linkId, contentId, userId, title, result, null);
+    }
+
+    @CacheEvict(value = {"summaries", "summary", "summaryByLink"}, allEntries = true)
     @Transactional
     public void save(
             UUID sourceEventId,
@@ -38,7 +50,8 @@ public class SummaryPersistenceService {
             UUID contentId,
             String userId,
             String title,
-            SummaryResult result){
+            SummaryResult result,
+            String canonicalUrl){
         if(processedEventRepository.claimEvent(sourceEventId, "content.extracted.v1") == 0){
             log.info("Skipping persistence for already processed summary event {}", sourceEventId);
             return;
@@ -53,6 +66,7 @@ public class SummaryPersistenceService {
                 .linkId(linkId)
                 .contentId(contentId)
                 .userId(userId)
+                .canonicalUrl(canonicalUrl)
                 .title(title)
                 .summary(result.summary())
                 .keyTakeaways(result.keyTakeaways())

@@ -74,36 +74,47 @@ public class LinkSubmittedConsumer {
                     message,
                     channel,
                     deliveryTag,
-                    ex.getMessage()
+                    ex.getMessage(),
+                    event,
+                    "EXTRACTION_FAILED"
             );
         }
         catch (RetryableExtractionException exception){
             log.error("Retryable extraction failure for link: {}",
                     event.linkId(), exception);
-            retryAndAck(message, channel,deliveryTag);
+            retryAndAck(message, event, channel, deliveryTag);
         }
         catch (Exception exception){
             log.error("Unexpected extraction failure for link: {}",
                     event.linkId(), exception);
 
-            retryAndAck(message, channel, deliveryTag);
+            retryAndAck(message, event, channel, deliveryTag);
         }
     }
 
     private void retryAndAck(Message message,
+                             LinkSubmittedEvent event,
                              Channel channel,
                              long deliveryTag) throws IOException {
-        try{
+        boolean exhausted = extractionRetryPublisher.retriesExhausted(message);
+        try {
             extractionRetryPublisher.retry(message);
-
-            log.info("Message successfully published to retry queue");
-
-            channel.basicAck(deliveryTag,false);
+            if (exhausted) {
+                extractionRetryPublisher.publishFailureEvent(event, "RETRIES_EXHAUSTED");
+            }
+            log.info("Message successfully published to retry/DLQ queue");
+            channel.basicAck(deliveryTag, false);
         } catch (Exception e) {
-            log.error("Retry publishing failed. Requeuing original message",
-                    e);
-
-            channel.basicNack(deliveryTag,false,true);
+            log.error("Retry publishing failed; trying confirmed DLQ fallback", e);
+            try {
+                extractionRetryPublisher.publishToDlq(message, "Retry forwarding failed");
+                extractionRetryPublisher.publishFailureEvent(event, exhausted ? "RETRIES_EXHAUSTED" : "RETRY_FORWARDING_FAILED");
+                channel.basicAck(deliveryTag, false);
+            } catch (Exception terminalFailure) {
+                terminalFailure.addSuppressed(e);
+                log.error("Retry, failure event, and DLQ forwarding failed; requeuing original message", terminalFailure);
+                channel.basicNack(deliveryTag, false, true);
+            }
         }
     }
 
@@ -111,20 +122,25 @@ public class LinkSubmittedConsumer {
                                  Channel channel,
                                  long deliveryTag,
                                  String reason) throws IOException {
-        try{
+        moveToDlqAndAck(message, channel, deliveryTag, reason, null, null);
+    }
+
+    private void moveToDlqAndAck(Message message,
+                                 Channel channel,
+                                 long deliveryTag,
+                                 String reason,
+                                 LinkSubmittedEvent event,
+                                 String failureCode) throws IOException {
+        try {
             extractionRetryPublisher.publishToDlq(message, reason);
-
-            log.info("Message successfully published to DLQ. Reason: {}",
-                    reason);
-
-            channel.basicAck(deliveryTag,false);
-
+            if (event != null) {
+                extractionRetryPublisher.publishFailureEvent(event, failureCode);
+            }
+            log.info("Message successfully published to DLQ and failure event. Reason: {}", reason);
+            channel.basicAck(deliveryTag, false);
         } catch (Exception e) {
-
-            log.error("DLQ publishing failed. Requeuing original message",
-                    e);
-
-            channel.basicNack(deliveryTag,false,true);
+            log.error("DLQ/failure event publishing failed. Requeuing original message", e);
+            channel.basicNack(deliveryTag, false, true);
         }
     }
 }

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Link Context — Digital Footprint",
+  "version": "0.1.0",
+  "description": "Review cookie metadata for sites you allow, categorise trackers, and remove selected cookies locally. Cookie values are never uploaded.",
+  "permissions": ["cookies", "activeTab", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Link Context footprint", "default_popup": "popup.html" },
+  "minimum_chrome_version": "114"
+}

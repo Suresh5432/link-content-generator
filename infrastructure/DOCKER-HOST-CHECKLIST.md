@@ -92,7 +92,7 @@ Check database migration history and service schema validation without editing o
 - `docker compose --env-file .env up -d --no-recreate api-gateway link-service extraction-service summarization-service user-service notification-service` started all app services. A Notification Service health-check mismatch was fixed by changing its Docker health probe from aggregate `/actuator/health` to `/actuator/health/readiness`; only that app container was recreated to apply the image change.
 - Docker health status is **healthy** for all six app services and the PostgreSQL, RabbitMQ, Redis, Keycloak, and Ollama dependencies. Each in-container readiness endpoint returned `{"status":"UP"}`; Gateway host readiness at port 8084 also returned `UP`.
 - `qwen2.5:3b` is present in Ollama (1.9 GB), and the model-init container exited 0. Compose created the Ollama named volume. No existing data volumes were deleted, reset, or removed; existing infra containers were not recreated.
-- Notification's aggregate health remains `503` because SMTP has no password (`Mail health check failed`); its readiness group is `UP` and Docker probes readiness. SMTP delivery remains unverified. Full user-token auth matrix, end-to-end workflow, RabbitMQ outage/DLQ cases, AI generation, tracing, alert delivery, and backup/restore remain outstanding.
+- The initial SMTP-missing observation above was superseded after SMTP configuration: the authenticated workflow later persisted an email delivery as `SENT`, and the relay accepted a separate STARTTLS test. The mailbox itself was not independently inspected.
 
 Earlier Docker-backed Testcontainers suites also passed:
 
@@ -100,4 +100,15 @@ Earlier Docker-backed Testcontainers suites also passed:
 - Summarization PostgreSQL/Testcontainers: `SummaryRepositoryIntegrationTest` — **1 test, 0 failures, 0 errors, 0 skipped**. Flyway applied the test schema migrations to the disposable database.
 - User PostgreSQL/Testcontainers: `UserProfileRepositoryIntegrationTest` — **2 tests, 0 failures, 0 errors, 0 skipped**. Flyway applied both user profile migrations to the disposable database.
 
-Those tests used disposable test containers and did not touch the application volumes. Full Compose startup/readiness, Keycloak authorization, RabbitMQ behavior, AI, SMTP and cross-service workflow checks remain outstanding. The automatic security review rejected a command that would retrieve and print a live Keycloak client secret; no workaround was attempted.
+Those tests used disposable test containers and did not touch the application volumes.
+
+### Latest runtime update — 2026-11-21
+
+- After the user applied the Docker Desktop memory increase and restarted Desktop, `docker context show` returned `desktop-linux` and `docker info --format 'engine={{.Name}} memory_bytes={{.MemTotal}}'` returned `engine=docker-desktop memory_bytes=12537860096` (~11.68 GiB).
+- Desktop restart stopped Keycloak with exit code 143. `docker compose --env-file .env up -d keycloak` started the existing service in place. OIDC discovery returned HTTP 200; all six application containers and Postgres, RabbitMQ, Redis, Keycloak, Ollama, Prometheus and Alertmanager returned healthy. No persistent volume was removed or reset.
+- Each app's in-container `/actuator/health/readiness` endpoint returned `{"status":"UP"}`; Gateway host readiness returned HTTP 200. Prometheus reported 7/7 targets up; Alertmanager readiness and Jaeger UI returned HTTP 200.
+- Local `qwen2.5:3b` inference exited 0 and returned `READY`.
+- Reran Testcontainers: Gateway Redis 2/2, Summary PostgreSQL/Flyway 1/1, User PostgreSQL/Flyway 2/2; zero failures, errors, or skips.
+- Live probes confirmed anonymous/malformed bearer requests are rejected with 401, configured-origin CORS preflight returns 200, and an unlisted origin returns 403. RabbitMQ had 18 application/retry/DLQ queues, with 0 messages ready and 0 unacknowledged.
+- Previously verified workflow, cross-user denial, duplicate-message restart recovery, HTTP/Rabbit consumer trace probes, controlled Alertmanager relay acceptance, and isolated five-database logical restore remain as recorded in `COMPLETION-REPORT.md`.
+- Still open: broker outage, unroutable mandatory publish and DLQ replay tests; runtime out-of-order delivery; normal outbox trace continuity; full JWT issuer/audience/expiry/roles matrix; production Alertmanager recipient and inbox receipt; restart during in-flight work; off-host backup/PITR; sustained load; and a repeatable automated authenticated end-to-end suite. No RabbitMQ Testcontainers test exists in the repository.

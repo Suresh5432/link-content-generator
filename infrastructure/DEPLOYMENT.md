@@ -11,7 +11,7 @@ This guide describes the Compose topology in the repository. For operational che
 - For notification email, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, and `SMTP_PASSWORD` in the ignored local `.env`. Compose defaults to Gmail on port 587 with authentication and STARTTLS enabled; use an account-specific app password when the provider requires one. The sender address is currently taken from `SMTP_USERNAME`. Without these values, Notification readiness can still pass but aggregate mail health and delivery will fail. Never commit the SMTP password.
 - For Alertmanager email, set `ALERT_SMTP_HOST`, `ALERT_SMTP_PORT`, `ALERT_SMTP_FROM`, `ALERT_SMTP_USERNAME`, and `ALERT_EMAIL_TO` in the ignored `.env` using the names in `.env.example`. Put the SMTP app password in `infrastructure/monitoring/alertmanager/secrets/gmail-app-password`; do not commit either secret. Alertmanager v0.28.1 does not support `--config.expand-env`, so Compose runs `render-config.sh` to validate and render only the non-secret address/host values before startup. A health check confirms the HTTP endpoint, not email delivery.
 
-The Keycloak issuer returned in tokens must exactly equal `KEYCLOAK_ISSUER_URI_DOCKER`, default `http://keycloak:8080/realms/link-context`, and resolve from backend containers. A Keycloak container being healthy does not mean realm, audience, or clients have been provisioned.
+The Keycloak issuer returned in tokens must exactly equal `KEYCLOAK_ISSUER_URI_DOCKER`, default `http://localhost:5173/auth/realms/link-context`. Backend services fetch signing keys from Keycloak over Docker networking while validating this public issuer. A Keycloak container being healthy does not mean realm, audience, or clients have been provisioned.
 
 ## Validate and start
 

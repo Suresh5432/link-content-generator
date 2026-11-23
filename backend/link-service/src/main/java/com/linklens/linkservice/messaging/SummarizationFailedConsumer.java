@@ -74,14 +74,28 @@ public class SummarizationFailedConsumer {
                     "Failed to process summarization failure event",e
             );
 
+            forwardRetryOrDeadLetter(message, e);
+            channel.basicAck(deliveryTag, false);
+        }
+    }
+
+    private void forwardRetryOrDeadLetter(Message message, Exception failure) {
+        try {
             failureEventRetryPublisher.retry(
                     message,
                     RabbitMQConfig.SUMMARIZATION_FAILED_ROUTING_KEY,
-                    RabbitMQConfig.SUMMARIZATION_FAILED_QUEUE,
+                    RabbitMQConfig.SUMMARIZATION_FAILURE_RETRY_QUEUE,
                     RabbitMQConfig.SUMMARIZATION_FAILED_ROUTING_KEY
             );
-
-            channel.basicAck(deliveryTag, false);
+        } catch (Exception retryFailure) {
+            try {
+                failureEventRetryPublisher.deadLetter(message, RabbitMQConfig.SUMMARIZATION_FAILED_ROUTING_KEY,
+                        "Retry forwarding failed");
+            } catch (Exception deadLetterFailure) {
+                deadLetterFailure.addSuppressed(retryFailure);
+                deadLetterFailure.addSuppressed(failure);
+                throw deadLetterFailure;
+            }
         }
     }
 }

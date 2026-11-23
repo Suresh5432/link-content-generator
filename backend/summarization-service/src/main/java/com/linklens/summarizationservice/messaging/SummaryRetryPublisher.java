@@ -46,6 +46,10 @@ public class SummaryRetryPublisher {
         log.info("Published summary event to retry queue (attempt {})", retryCount + 1);
     }
 
+    public boolean retriesExhausted(Message original) {
+        return getRetryCount(original) >= MAX_RETRIES;
+    }
+
     public void sendToDlq(Message original, String reason) throws Exception {
 
         Message deadLetterMassage=MessageBuilder

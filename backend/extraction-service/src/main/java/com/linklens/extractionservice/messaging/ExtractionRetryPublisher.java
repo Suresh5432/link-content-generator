@@ -1,14 +1,20 @@
 package com.linklens.extractionservice.messaging;
 
 
+import com.linkcontext.contracts.EventRoutingKey;
+import com.linkcontext.contracts.events.ExtractionFailedEvent;
+import com.linkcontext.contracts.events.LinkSubmittedEvent;
 import com.linklens.extractionservice.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -43,6 +49,18 @@ public class ExtractionRetryPublisher {
                 RabbitMQConfig.RETRY_ROUTING_KEY,
                 retryMessage
         );
+    }
+
+    public boolean retriesExhausted(Message originalMessage) {
+        return getRetryCount(originalMessage) >= MAX_RETRIES;
+    }
+
+    /** Publish a terminal failure so link and notification services update user-facing status. */
+    public void publishFailureEvent(LinkSubmittedEvent submitted, String failureCode) throws Exception {
+        UUID eventId = UUID.nameUUIDFromBytes((submitted.eventId() + ":" + failureCode).getBytes(StandardCharsets.UTF_8));
+        ExtractionFailedEvent event = new ExtractionFailedEvent(eventId, submitted.linkId(), submitted.userId(), failureCode, false, Instant.now(), 1);
+        Message failureMessage = rabbitTemplate.getMessageConverter().toMessage(event, new MessageProperties());
+        publishConfirmed(RabbitMQConfig.LINK_EXCHANGE, EventRoutingKey.EXTRACTION_FAILED, failureMessage);
     }
 
     public void publishToDlq(Message originalMessage, String reason) throws Exception{

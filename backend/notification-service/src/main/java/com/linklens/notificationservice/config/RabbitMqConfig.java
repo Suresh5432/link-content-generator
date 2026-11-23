@@ -22,6 +22,12 @@ public class RabbitMqConfig {
     public static final String SUMMARIZATION_FAILED_QUEUE=
             "notification.summarization-failed";
 
+    public static final String PRIVACY_STATUS_QUEUE=
+            "notification.privacy-request-status";
+
+    public static final String PRIVACY_REMINDER_QUEUE=
+            "notification.privacy-request-reminder";
+
     @Bean
     public TopicExchange linkEventsExchange() {
         return new TopicExchange(LINK_EVENTS_EXCHANGE, true, false);
@@ -40,6 +46,16 @@ public class RabbitMqConfig {
     @Bean
     public Queue summaryFailedQueue(){
         return QueueBuilder.durable(SUMMARIZATION_FAILED_QUEUE).build();
+    }
+
+    @Bean
+    public Queue privacyStatusQueue(){
+        return QueueBuilder.durable(PRIVACY_STATUS_QUEUE).build();
+    }
+
+    @Bean
+    public Queue privacyReminderQueue(){
+        return QueueBuilder.durable(PRIVACY_REMINDER_QUEUE).build();
     }
 
     @Bean
@@ -62,6 +78,20 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(summaryFailedQueue())
                 .to(linkEventsExchange())
                 .with(EventRoutingKey.SUMMARIZATION_FAILED);
+    }
+
+    @Bean
+    public Binding privacyStatusBinding(){
+        return BindingBuilder.bind(privacyStatusQueue())
+                .to(linkEventsExchange())
+                .with(EventRoutingKey.PRIVACY_REQUEST_STATUS_CHANGED);
+    }
+
+    @Bean
+    public Binding privacyReminderBinding(){
+        return BindingBuilder.bind(privacyReminderQueue())
+                .to(linkEventsExchange())
+                .with(EventRoutingKey.PRIVACY_REQUEST_REMINDER);
     }
 
     @Bean

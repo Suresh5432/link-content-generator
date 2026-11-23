@@ -33,6 +33,26 @@ spring:
               uri: ${USER_SERVICE_URL:http://localhost:8085}
               predicates:
                 - Path=/api/v1/users/**
+            - id: digital-footprint-service
+              uri: ${USER_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/digital-footprint,/api/v1/digital-footprint/**
+            - id: privacy-request-service
+              uri: ${USER_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/privacy-requests,/api/v1/privacy-requests/**
+            - id: cookie-service
+              uri: ${USER_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/cookies,/api/v1/cookies/**
+            - id: browser-integration-service
+              uri: ${USER_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/browser-integrations,/api/v1/browser-integrations/**
+            - id: privacy-preference-service
+              uri: ${USER_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/privacy-preferences,/api/v1/privacy-preferences/**
             - id: notification-service
               uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
               predicates:
@@ -41,6 +61,18 @@ spring:
               uri: ${SUMMARY_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/v1/summaries,/api/v1/summaries/**
+            - id: website-analysis-report-service
+              uri: ${SUMMARY_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/website-analysis-reports,/api/v1/website-analysis-reports/**
+            - id: privacy-assistant-service
+              uri: ${SUMMARY_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/privacy-assistant,/api/v1/privacy-assistant/**
+            - id: website-analysis-service
+              uri: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/website-analyses,/api/v1/website-analyses/**
           http-client:
             connect-timeout: 3s
             read-timeout: 15s

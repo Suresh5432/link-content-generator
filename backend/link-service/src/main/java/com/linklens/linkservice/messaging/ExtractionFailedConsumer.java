@@ -73,14 +73,28 @@ public class ExtractionFailedConsumer {
                     "Failed to process extraction failure event",e
             );
 
+            forwardRetryOrDeadLetter(message, e);
+            channel.basicAck(deliveryTag, false);
+        }
+    }
+
+    private void forwardRetryOrDeadLetter(Message message, Exception failure) {
+        try {
             failureEventRetryPublisher.retry(
                     message,
                     RabbitMQConfig.EXTRACTION_FAILED_ROUTING_KEY,
                     RabbitMQConfig.EXTRACTION_FAILURE_RETRY_QUEUE,
                     RabbitMQConfig.EXTRACTION_FAILED_ROUTING_KEY
             );
-
-            channel.basicAck(deliveryTag, false);
+        } catch (Exception retryFailure) {
+            try {
+                failureEventRetryPublisher.deadLetter(message, RabbitMQConfig.EXTRACTION_FAILED_ROUTING_KEY,
+                        "Retry forwarding failed");
+            } catch (Exception deadLetterFailure) {
+                deadLetterFailure.addSuppressed(retryFailure);
+                deadLetterFailure.addSuppressed(failure);
+                throw deadLetterFailure;
+            }
         }
     }
 }

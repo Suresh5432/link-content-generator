@@ -73,6 +73,13 @@ public class FailureEventRetryPublisher {
         }
     }
 
+    public void deadLetter(Message originalMessage, String routingKey, String reason) {
+        Message deadLetter = MessageBuilder.fromMessage(originalMessage)
+                .setHeader("x-dead-letter-reason", reason)
+                .build();
+        publishAndConfirm(RabbitMQConfig.FAILURE_DLQ_EXCHANGE, routingKey, deadLetter);
+    }
+
     private void publishAndConfirm(
             String exchange,
             String routingKey,

@@ -6,11 +6,11 @@ services:
     container_name: lcg-alertmanager
     restart: unless-stopped
     environment:
-      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-smtp.gmail.com}
-      ALERT_SMTP_PORT: ${ALERT_SMTP_PORT:-587}
-      ALERT_SMTP_FROM: ${ALERT_SMTP_FROM:-alerts@example.invalid}
-      ALERT_SMTP_USERNAME: ${ALERT_SMTP_USERNAME:-alerts@example.invalid}
-      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-alerts@example.invalid}
+      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-${SMTP_HOST:-smtp.gmail.com}}
+      ALERT_SMTP_PORT: ${ALERT_SMTP_PORT:-${SMTP_PORT:-587}}
+      ALERT_SMTP_FROM: ${ALERT_SMTP_FROM:-${SMTP_USERNAME:?SMTP_USERNAME is required}}
+      ALERT_SMTP_USERNAME: ${ALERT_SMTP_USERNAME:-${SMTP_USERNAME:?SMTP_USERNAME is required}}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-${SMTP_USERNAME:?SMTP_USERNAME is required}}
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
@@ -106,10 +106,14 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
       KC_HEALTH_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:5173/auth}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
+      - ./infrastructure/keycloak/themes:/opt/keycloak/themes:ro
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000"]
       interval: 15s
@@ -215,7 +219,8 @@ services:
     ports:
       - "8084:8084"
     environment: &app-environment
-      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI_DOCKER:-http://keycloak:8080/realms/link-context}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI_DOCKER:-http://localhost:5173/auth/realms/link-context}
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/auth/realms/link-context/protocol/openid-connect/certs
       KEYCLOAK_EXPECTED_AUDIENCE: ${KEYCLOAK_EXPECTED_AUDIENCE:-link-context-gateway}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
@@ -242,6 +247,28 @@ services:
       notification-service:
         condition: service_healthy
     networks: [default, data-network, messaging-network, identity-network]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${FRONTEND_API_BASE_URL:-http://localhost:8084}
+        VITE_KEYCLOAK_REALM: ${FRONTEND_KEYCLOAK_REALM:-link-context}
+        VITE_KEYCLOAK_CLIENT_ID: ${FRONTEND_KEYCLOAK_CLIENT_ID:-link-context-web}
+    image: link-context/frontend:local
+    container_name: lcg-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - default
+      - identity-network
 
   link-service:
     build:
@@ -323,7 +350,7 @@ services:
       EXTRACTION_SERVICE_URL: http://extraction-service:8082
       EXTRACTION_CLIENT_ID: ${EXTRACTION_CLIENT_ID:-extraction-service}
       EXTRACTION_CLIENT_SECRET: ${EXTRACTION_CLIENT_SECRET:?EXTRACTION_CLIENT_SECRET is required}
-      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/link-context/protocol/openid-connect/token
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/auth/realms/link-context/protocol/openid-connect/token
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
       OLLAMA_BASE_URL: http://ollama:11434
@@ -332,6 +359,8 @@ services:
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -396,7 +425,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       NOTIFICATION_CLIENT_ID: ${NOTIFICATION_CLIENT_ID:-notification-service}
       NOTIFICATION_CLIENT_SECRET: ${NOTIFICATION_CLIENT_SECRET:?NOTIFICATION_CLIENT_SECRET is required}
-      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/link-context/protocol/openid-connect/token
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/auth/realms/link-context/protocol/openid-connect/token
       USER_SERVICE_BASE_URL: http://user-service:8085
       KEYCLOAK_EXPECTED_AUDIENCE: ${NOTIFICATION_SERVICE_EXPECTED_AUDIENCE:-notification-service}
       SECURITY_JWT_EXPECTED_AUDIENCE: ${NOTIFICATION_SERVICE_EXPECTED_AUDIENCE:-notification-service}

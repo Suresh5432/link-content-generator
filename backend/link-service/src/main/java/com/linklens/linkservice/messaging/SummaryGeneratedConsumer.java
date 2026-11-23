@@ -68,9 +68,18 @@ public class SummaryGeneratedConsumer {
             }
             catch (Exception publishingException){
 
-                log.error("Failed to forward message for retry/DLQ",publishingException);
-
-                channel.basicNack(deliveryTag, false, true);
+                log.error("Failed to forward message for retry/DLQ; trying confirmed DLQ fallback",publishingException);
+                try {
+                    Message deadLetter = MessageBuilder.fromMessage(message)
+                            .setHeader("x-dead-letter-reason", "Retry forwarding failed")
+                            .build();
+                    sendAndConfirm(RabbitMQConfig.SUMMARY_DLQ, deadLetter);
+                    channel.basicAck(deliveryTag, false);
+                } catch (Exception deadLetterFailure) {
+                    deadLetterFailure.addSuppressed(publishingException);
+                    log.error("Retry and DLQ forwarding failed; requeuing original message", deadLetterFailure);
+                    channel.basicNack(deliveryTag, false, true);
+                }
             }
         }
     }

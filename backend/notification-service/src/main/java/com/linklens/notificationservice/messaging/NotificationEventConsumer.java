@@ -1,6 +1,8 @@
 package com.linklens.notificationservice.messaging;
 
 import com.linkcontext.contracts.events.ExtractionFailedEvent;
+import com.linkcontext.contracts.events.PrivacyRequestReminderEvent;
+import com.linkcontext.contracts.events.PrivacyRequestStatusChangedEvent;
 import com.linkcontext.contracts.events.SummarizationFailedEvent;
 import com.linkcontext.contracts.events.SummaryGeneratedEvent;
 import com.linklens.notificationservice.config.RabbitMqConfig;
@@ -40,6 +42,18 @@ public class NotificationEventConsumer {
                 "Received summarization failed event: {}",
                 event.eventId());
 
+        notificationProcessor.process(event);
+    }
+
+    @RabbitListener(queues = RabbitMqConfig.PRIVACY_STATUS_QUEUE)
+    public void consumePrivacyStatusChanged(PrivacyRequestStatusChangedEvent event) {
+        log.info("Received privacy request status event: {}", event.eventId());
+        notificationProcessor.process(event);
+    }
+
+    @RabbitListener(queues = RabbitMqConfig.PRIVACY_REMINDER_QUEUE)
+    public void consumePrivacyReminder(PrivacyRequestReminderEvent event) {
+        log.info("Received privacy request reminder event: {}", event.eventId());
         notificationProcessor.process(event);
     }
 }

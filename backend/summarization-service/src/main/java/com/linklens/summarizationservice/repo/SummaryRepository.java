@@ -14,6 +14,8 @@ public interface SummaryRepository extends JpaRepository<Summary, UUID> {
 
     Optional<Summary> findByLinkId(UUID linkId);
 
+    Optional<Summary> findFirstByCanonicalUrlOrderByCreatedAtAsc(String canonicalUrl);
+
     Optional<Summary> findByLinkIdAndUserId(UUID linkId,String userId);
 
     Optional<Summary> findByIdAndUserId(UUID id, String userId);

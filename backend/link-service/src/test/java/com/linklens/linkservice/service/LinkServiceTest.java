@@ -107,6 +107,26 @@ class LinkServiceTest {
         verifyNoInteractions(outbox);
     }
 
+    @Test
+    void deleteSoftDeletesLinkOwnedByUser() {
+        UUID id = UUID.randomUUID();
+        Link link = link("u", "https://example.com", LinkStatus.COMPLETED);
+        when(links.findByIdAndUserIdAndDeletedAtIsNull(id, "u")).thenReturn(Optional.of(link));
+
+        service.deleteLink(id, "u");
+
+        assertNotNull(link.getDeletedAt());
+        verify(links).findByIdAndUserIdAndDeletedAtIsNull(id, "u");
+    }
+
+    @Test
+    void deleteHidesLinksOwnedByAnotherUser() {
+        UUID id = UUID.randomUUID();
+        when(links.findByIdAndUserIdAndDeletedAtIsNull(id, "other")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.deleteLink(id, "other"));
+    }
+
     private static CreateLinkRequest request(String url) { CreateLinkRequest r = new CreateLinkRequest(); r.setUrl(url); return r; }
     private static Link link(String owner, String url, LinkStatus status) {
         return Link.builder().id(UUID.randomUUID()).userId(owner).originalUrl(url).normalizedUrl(url).status(status).build();

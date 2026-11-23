@@ -33,8 +33,11 @@ public class Notification {
     @Column(name = "user_id", nullable = false, length = 255)
     private String userId;
 
-    @Column(name = "link_id", nullable = false)
+    @Column(name = "link_id")
     private UUID linkId;
+
+    @Column(name = "request_id")
+    private UUID requestId;
 
     @Enumerated(EnumType.STRING)
     @Column(name="notification_type", nullable = false, length = 40)

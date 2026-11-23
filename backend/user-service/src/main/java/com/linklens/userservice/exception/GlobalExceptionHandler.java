@@ -1,5 +1,8 @@
 package com.linklens.userservice.exception;
 
+import com.linklens.userservice.digitalfootprint.exception.IllegalStateTransitionException;
+import com.linklens.userservice.digitalfootprint.exception.InvalidRequestException;
+import com.linklens.userservice.digitalfootprint.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,6 +14,30 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<?> handleNotFound(ResourceNotFoundException e) {
+        return error(HttpStatus.NOT_FOUND, "Not Found", e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<?> handleInvalidRequest(InvalidRequestException e) {
+        return error(HttpStatus.BAD_REQUEST, "Bad Request", e.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateTransitionException.class)
+    public ResponseEntity<?> handleIllegalTransition(IllegalStateTransitionException e) {
+        return error(HttpStatus.CONFLICT, "Conflict", e.getMessage());
+    }
+
+    private ResponseEntity<?> error(HttpStatus status, String reason, String message) {
+        return ResponseEntity.status(status).body(Map.of(
+                "timestamp", Instant.now(),
+                "status", status.value(),
+                "error", reason,
+                "message", message
+        ));
+    }
 
     @ExceptionHandler(UserProfileNotFoundException.class)
     public ResponseEntity<?> handleUserProfileNotFoundException(

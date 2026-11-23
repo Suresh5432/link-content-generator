@@ -20,9 +20,6 @@ public class AiInputValidator {
             throw new IllegalArgumentException("Content cannot be empty");
         }
 
-        if (request.content().length()>maxInputCharacters){
-            throw new IllegalArgumentException("Content exceeds the maximum AI input size");
-        }
         if (request.title() != null && request.title().length() > 1000) {
             throw new IllegalArgumentException("Title exceeds the maximum allowed length");
         }
@@ -30,6 +27,19 @@ public class AiInputValidator {
             throw new IllegalArgumentException("Language exceeds the maximum allowed length");
         }
 
-        return request;
+        if (request.content().length() <= maxInputCharacters) {
+            return request;
+        }
+
+        // Web extraction can legitimately return large pages. Bound AI cost and
+        // provider limits without turning an otherwise valid link into a retry loop.
+        final String marker = "…";
+        int contentLimit = Math.max(0, maxInputCharacters - marker.length());
+        int safeEnd = Math.min(contentLimit, request.content().length());
+        if (safeEnd > 0 && Character.isHighSurrogate(request.content().charAt(safeEnd - 1))) {
+            safeEnd--;
+        }
+        String truncated = request.content().substring(0, safeEnd) + marker;
+        return new AiRequest(request.title(), truncated, request.language());
     }
 }

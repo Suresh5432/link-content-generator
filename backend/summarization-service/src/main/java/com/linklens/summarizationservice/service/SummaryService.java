@@ -1,12 +1,15 @@
 package com.linklens.summarizationservice.service;
 
 import com.linklens.summarizationservice.dto.ExtractedContentResponse;
+import com.linklens.summarizationservice.entity.Summary;
+import com.linklens.summarizationservice.repo.SummaryRepository;
 import com.linklens.summarizationservice.dto.SummaryResult;
 import com.linklens.summarizationservice.service.ai.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,13 +29,47 @@ public class SummaryService {
 
     private final SummaryPersistenceService persistenceService;
 
+    private final SummaryRepository summaryRepository;
+
     public void generateSummary(
             UUID sourceEventId,
             UUID linkId,
             UUID contentId,
             String userId,
             String title,
-            String language){
+            String language) {
+        generateSummary(sourceEventId, linkId, contentId, userId, title, language, null);
+    }
+
+    public void generateSummary(
+            UUID sourceEventId,
+            UUID linkId,
+            UUID contentId,
+            String userId,
+            String title,
+            String language,
+            String canonicalUrl) {
+        String normalizedCanonicalUrl = (canonicalUrl == null || canonicalUrl.isBlank())
+                ? null : canonicalUrl.trim();
+        if (normalizedCanonicalUrl != null) {
+            Optional<Summary> existing = summaryRepository
+                    .findFirstByCanonicalUrlOrderByCreatedAtAsc(normalizedCanonicalUrl);
+            if (existing.isPresent()) {
+                Summary reused = existing.get();
+                SummaryResult result = new SummaryResult(
+                        reused.getSummary(),
+                        reused.getKeyTakeaways(),
+                        reused.getReadingTimeMinutes(),
+                        reused.getWordCount(),
+                        reused.getAiProvider(),
+                        reused.getAiModel());
+                persistenceService.save(sourceEventId, linkId, contentId, userId,
+                        title != null ? title : reused.getTitle(), result, normalizedCanonicalUrl);
+                log.info("Reused existing summary for canonical URL {} for link {}", normalizedCanonicalUrl, linkId);
+                return;
+            }
+        }
+
 
         log.debug("Generating summary for event {} and link {} using provider {}", sourceEventId, linkId, aiProvider.getProviderName());
 
@@ -87,7 +124,8 @@ public class SummaryService {
                 contentId,
                 userId,
                 request.title(),
-                result);
+                result,
+                normalizedCanonicalUrl);
         log.info("Persisted summary for link {} using provider {} model {}", linkId, result.aiProvider(), result.aiModel());
 
     }

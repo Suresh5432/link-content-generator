@@ -62,23 +62,35 @@ public class ContentExtractedConsumer {
         }
         catch (Exception e){
             log.error("Summary processing failed for event {}; attempting retry", event.eventId(), e);
-            retryAndAck(message,channel,deliveryTag);
+            retryAndAck(message, event, channel, deliveryTag);
         }
     }
 
     private void retryAndAck(
             Message message,
+            ContentExtractedEvent event,
             Channel channel,
             long deliveryTag) throws IOException {
 
         try {
             retryPublisher.retry(message);
+            if (retryPublisher.retriesExhausted(message)) {
+                processingService.recordTerminalFailure(event);
+            }
             channel.basicAck(deliveryTag,false);
             log.info("Republished failed summary event for retry");
         }
         catch (Exception e){
-            log.error("Retry publishing failed; requeuing summary event", e);
-            channel.basicNack(deliveryTag,false,true);
+            log.error("Retry publishing failed; trying confirmed DLQ fallback", e);
+            try {
+                retryPublisher.sendToDlq(message, "Retry forwarding failed");
+                processingService.recordTerminalFailure(event);
+                channel.basicAck(deliveryTag, false);
+            } catch (Exception deadLetterFailure) {
+                deadLetterFailure.addSuppressed(e);
+                log.error("Retry and DLQ forwarding failed; requeuing summary event", deadLetterFailure);
+                channel.basicNack(deliveryTag, false, true);
+            }
         }
     }
 
