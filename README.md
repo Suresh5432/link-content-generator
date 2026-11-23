@@ -1,71 +1,149 @@
 # Link Context Generator
 
-Link Context Generator accepts a webpage URL, extracts its content, and generates an AI summary. The repository is a Java 21 / Spring Boot monorepo containing independent Maven services. This README is the project entry point; operational detail is in [`infrastructure/`](infrastructure/).
+Link Context turns a webpage URL into an AI-generated summary and gives users a private workspace to understand and manage their digital footprint.
 
-## Repository map
+The application is a Java 21 / Spring Boot microservices monorepo with a React and TypeScript frontend. Services communicate through authenticated HTTP APIs and asynchronous RabbitMQ events; each service owns its database.
 
-| Path | Responsibility |
+## What you can do
+
+- Submit a webpage URL and follow its extraction and summarization status.
+- Review generated summaries and receive in-app notifications.
+- Track websites, accounts you remember creating, and category-level personal-data notes.
+- Inspect cookie and tracker **metadata** with the optional browser extension.
+- Prepare access, deletion, and other privacy requests; review and submit them yourself.
+- Ask a grounded assistant questions about your own saved footprint records.
+- Export or delete Link Context footprint records.
+- Optionally connect Gmail to find **possible** website-account matches from recent message headers.
+
+### Privacy by design
+
+- Gmail discovery is off unless an operator configures it. It requests read-only metadata access, scans at most 100 recent messages, and never requests or stores message bodies. It cannot find every account or retrieve data held by websites.
+- Email matches are low-confidence possibilities—not proof of an account—and require your confirmation.
+- Cookie sync sends metadata only, never cookie values, passwords, or session tokens.
+- Privacy-request messages are not sent automatically; users review and submit them through the website's official channel.
+- A website's deletion claim is not treated as proof that all copies were erased.
+
+See the [Digital Footprint guide](docs/DIGITAL-FOOTPRINT.md) for detailed behavior, API routes, provider setup, data handling, and limitations.
+
+## Repository layout
+
+| Path | Purpose |
 |---|---|
-| `backend/api-gateway` | Public HTTP entry point, JWT checks, routing, Redis rate limiting |
-| `backend/link-service` | Link ownership, lifecycle, idempotent submission and event publication |
-| `backend/extraction-service` | Safe webpage fetching, content extraction and persistence |
-| `backend/summarization-service` | AI provider calls, summaries, grounded privacy assistant and AI request drafts |
-| `backend/user-service` | User profile APIs, My Digital Footprint inventory, privacy requests, browser metadata, export/delete |
-| `backend/notification-service` | In-app notification APIs and asynchronous email delivery |
-| `backend/common/event-contracts` | Shared event types and routing-key contracts |
-| `frontend/` | React/TypeScript workspace including **My Digital Footprint** |
-| `browser-extension/` | Optional Manifest V3 extension that syncs cookie **metadata** only |
-| `infrastructure/` | Compose deployment, PostgreSQL initialization and monitoring configuration |
+| `backend/api-gateway` | Public API entry point, JWT validation, routing, and rate limiting |
+| `backend/link-service` | Link ownership, lifecycle, and event publication |
+| `backend/extraction-service` | Safe webpage fetching, extraction, and Website Intelligence |
+| `backend/summarization-service` | AI summaries, grounded privacy assistant, and request drafts |
+| `backend/user-service` | User profiles and My Digital Footprint data |
+| `backend/notification-service` | In-app notifications and email delivery |
+| `backend/common/event-contracts` | Shared event and routing-key contracts |
+| `frontend/` | React/TypeScript web application |
+| `browser-extension/` | Optional Manifest V3 cookie-metadata extension |
+| `infrastructure/` | Keycloak, database, monitoring, and deployment configuration |
+| `docs/` | Public API contract and feature documentation |
 
-Each service owns its database. Do not connect one service directly to another service’s schema. The URL-to-summary workflow uses RabbitMQ; see [architecture and API status](infrastructure/ARCHITECTURE.md) and [messaging operations](infrastructure/MESSAGING.md).
+## Run locally with Docker Compose
 
-## My Digital Footprint
+### Requirements
 
-See `docs/DIGITAL-FOOTPRINT.md`. Optional Gmail account discovery is disabled until an operator configures Google OAuth credentials and a 32-byte encryption key; it inspects only recent message headers and reports unverified possible matches, not all accounts or website-held data. Evidence file uploads and automated request submission are intentionally unsupported. Browser extension sync requires explicit API origin authorization and never uploads cookie/storage values.
+- Docker Engine with Docker Compose v2
+- Network access to pull container images and the configured AI model
+- Enough memory for the application, databases, and monitoring services
 
-
-The workspace now includes a privacy dashboard where a signed-in user can track websites and category-level personal-data records, sync cookie/tracker metadata through an optional browser extension, discover public privacy-request channels, generate and approve deletion/access requests, track responses and reminders, ask a grounded AI assistant about their own records, and export or delete their footprint data.
-
-Safety rules are enforced in code and tests: no passwords, raw cookie values, session tokens, full card numbers or identity numbers are stored; AI receives category-level context only; the user must approve the exact request message before submission; a website's deletion claim is recorded as a claim, not proof; and deleting cookie metadata never claims to delete server-side data.
-
-Full feature architecture, API, lifecycle, security rules, limits and test evidence: [My Digital Footprint](docs/DIGITAL-FOOTPRINT.md).
-
-## Local deployment
-
-Requirements: Docker Engine with Compose v2, network access for image/model pulls, and enough memory for the application and observability containers. Copy `.env.example` to `.env`, set unique local secrets and configure Keycloak as described in [Keycloak setup](infrastructure/KEYCLOAK.md). Keep `.env` and credential files out of source control.
+### Start the stack
 
 ```sh
 cp .env.example .env
-# Edit .env before starting services.
+```
+
+Edit `.env`: replace every placeholder with a unique local secret, configure Keycloak as described in [Keycloak setup](infrastructure/KEYCLOAK.md), and provide any credentials required by the services you plan to use. Do not commit `.env` or real credentials.
+
+```sh
 docker compose config --quiet
 docker compose up --build -d
 docker compose ps
 ```
 
-The React frontend is available at `http://localhost:5173` by default. Its public browser settings are supplied at image build time through `FRONTEND_API_BASE_URL`, `FRONTEND_KEYCLOAK_URL`, `FRONTEND_KEYCLOAK_REALM`, and `FRONTEND_KEYCLOAK_CLIENT_ID` in `.env`. Configure the Keycloak public client redirect URI and web origin for `http://localhost:5173/*` and `http://localhost:5173`. Compose uses `http://auth.localhost:8080` for both browser sign-in and backend token validation, with a network alias that lets both sides resolve the same issuer. Gateway CORS uses `CORS_ALLOWED_ORIGINS` and defaults to `http://localhost:5173`.
+By default, the web app is at `http://localhost:5173` and the public API gateway is at `http://localhost:8084`. Sign in through the configured Keycloak realm. The frontend's public Keycloak/API settings are passed at image build time; see `.env.example` and [deployment operations](infrastructure/DEPLOYMENT.md).
 
-Only Gateway is published as an application API at `http://localhost:8084`; Compose binds infrastructure and monitoring ports to loopback for local use. To stop without removing data, run `docker compose down`. **Do not use `docker compose down -v` for routine shutdown or upgrades.** PostgreSQL initialization scripts apply only to a fresh data directory. Existing database role credentials are not reset by Compose; see the backup and credential notes in [deployment operations](infrastructure/DEPLOYMENT.md).
-
-## Build and tests
+To stop the stack without deleting persistent data:
 
 ```sh
-mvn -q -DskipTests package
+docker compose down
+```
+
+Avoid `docker compose down -v` for routine shutdown: it deletes named volumes, including local database data. PostgreSQL initialization scripts apply only when the database data directory is first created.
+
+## Optional Gmail discovery
+
+Gmail discovery is disabled by default and is not simulated when provider configuration is missing. To enable it, an operator must configure a Google OAuth web application, enable Gmail API access, register the exact redirect URI, and complete any consent-screen verification required by Google:
+
+```text
+http://localhost:8084/api/v1/digital-footprint/connected-email/oauth/google/callback
+```
+
+Configure `GOOGLE_EMAIL_DISCOVERY_ENABLED`, `GOOGLE_EMAIL_DISCOVERY_ENCRYPTION_KEY`, `GOOGLE_EMAIL_DISCOVERY_FRONTEND_URL`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `GOOGLE_OAUTH_REDIRECT_URI` in the deployment environment. The encryption key must be Base64 encoding of exactly 32 random bytes; store it as a secret and do not rotate it without re-encrypting stored tokens.
+
+The user explicitly consents before connecting. OAuth state is single-use, short-lived, and bound to the initiating user; refresh tokens are encrypted at rest. Disconnect attempts provider revocation and deletes locally stored credentials and imported discoveries. See the [provider setup and limits](docs/DIGITAL-FOOTPRINT.md#accounts-cookies-browser-integration) for details.
+
+## Development and tests
+
+### Backend
+
+Java 21 and Maven are required. From the repository root:
+
+```sh
+mvn -DskipTests package
 mvn test
 ```
 
-The package command compiles and packages Maven modules without running tests. Tests that use Docker/Testcontainers require a working Docker daemon. Service `HELP.md` files contain service-specific notes; current implementation and known gaps are summarized in [architecture and API status](infrastructure/ARCHITECTURE.md).
+Some backend tests use Testcontainers and require a working Docker daemon. To build or test an individual service and its required modules:
 
-## Service and operational documentation
+```sh
+mvn -pl backend/user-service -am -DskipTests package
+mvn -pl backend/user-service -am test
+```
 
-- [Backend completion report and prioritized checklist](COMPLETION-REPORT.md)
-- [My Digital Footprint feature guide](docs/DIGITAL-FOOTPRINT.md)
-- [OpenAPI specification for public Gateway APIs](docs/openapi.yaml)
-- [Architecture, APIs, and current implementation status](infrastructure/ARCHITECTURE.md)
-- [Keycloak realm, clients, audiences, and scopes](infrastructure/KEYCLOAK.md)
-- [RabbitMQ exchanges, queues, and event flow](infrastructure/MESSAGING.md)
-- [Deployment, configuration, backup, verification, and troubleshooting](infrastructure/DEPLOYMENT.md)
-- [Docker-host integration and deployment checklist](infrastructure/DOCKER-HOST-CHECKLIST.md)
+### Frontend
 
-## Current limitations
+Node.js and npm are required:
 
-OpenAPI/Swagger endpoints are not configured in the current Maven projects. All six Compose services now start and report readiness, and service-client token scopes/audiences were verified. Remaining runtime checks include user-token authorization cases, SMTP delivery, actual AI summary generation, RabbitMQ failure/DLQ handling, end-to-end tracing, and the full URL-to-notification workflow; see the deployment guide.
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+Available checks:
+
+```sh
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
+
+### Browser extension
+
+Run its metadata and behavior tests with:
+
+```sh
+npm test --prefix browser-extension
+```
+
+Extension permissions and the data it syncs are documented in the [Digital Footprint guide](docs/DIGITAL-FOOTPRINT.md#browser-extension).
+
+## Architecture and documentation
+
+The main URL-to-summary workflow is asynchronous: the Gateway authenticates requests, Link Service records submissions, Extraction Service fetches and stores content, and Summarization Service generates summaries. RabbitMQ events update link status and notify users. PostgreSQL databases are service-owned; Redis supports Gateway rate limiting; Keycloak provides user and service authentication.
+
+- [Architecture and API status](infrastructure/ARCHITECTURE.md)
+- [Digital Footprint guide](docs/DIGITAL-FOOTPRINT.md)
+- [OpenAPI contract](docs/openapi.yaml)
+- [Keycloak setup](infrastructure/KEYCLOAK.md)
+- [Messaging operations](infrastructure/MESSAGING.md)
+- [Deployment, configuration, backup, and troubleshooting](infrastructure/DEPLOYMENT.md)
+- [Docker-host deployment checklist](infrastructure/DOCKER-HOST-CHECKLIST.md)
+
+## Scope and limitations
+
+Link Context organizes information users provide or features observe; it does not have universal access to accounts or third-party website databases. Website analysis, AI-generated content, public privacy-contact discovery, and email-based account matches can be incomplete or incorrect. Verify findings with the relevant website. Privacy requests must use that website's official process, and this application is not legal advice.
