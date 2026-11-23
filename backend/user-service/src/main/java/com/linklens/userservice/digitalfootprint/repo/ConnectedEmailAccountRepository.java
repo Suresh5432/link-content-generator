@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface ConnectedEmailAccountRepository extends JpaRepository<ConnectedEmailAccount, UUID> {
     List<ConnectedEmailAccount> findAllByUserIdOrderByCreatedAtDesc(String userId);
     Optional<ConnectedEmailAccount> findByIdAndUserId(UUID id, String userId);
+    Optional<ConnectedEmailAccount> findByUserIdAndProvider(String userId, String provider);
 }

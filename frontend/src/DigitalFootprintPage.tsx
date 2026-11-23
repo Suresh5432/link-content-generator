@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from './api'
 import type {
-  BrowserIntegration, CookieRecord, PersonalDataRecord, PrivacyMetrics, PrivacyPreference,
-  PrivacyRequest, PrivacyRequestEvidence, PrivacyRequestHistory, PrivacyRequestStatus, PrivacyRequestType,
+  BrowserIntegration, ConnectedEmailAccount, ConnectedEmailDiscovery, ConnectedEmailStatus, CookieRecord,
+  PersonalDataRecord, PrivacyMetrics, PrivacyPreference, PrivacyRequest, PrivacyRequestEvidence,
+  PrivacyRequestHistory, PrivacyRequestStatus, PrivacyRequestType,
   TrackedWebsite, UserWebsiteAccount, WebsiteAnalysis,
 } from './types'
 import { privacyRequestStatusLabels, privacyRequestTypeLabels } from './types'
@@ -28,6 +29,11 @@ export function DigitalFootprintPage() {
   const [preferences, setPreferences] = useState<PrivacyPreference | null>(null)
   const [integrations, setIntegrations] = useState<BrowserIntegration[]>([])
   const [analyses, setAnalyses] = useState<WebsiteAnalysis[]>([])
+  const [connectedEmailStatus, setConnectedEmailStatus] = useState<ConnectedEmailStatus | null>(null)
+  const [connectedEmailAccounts, setConnectedEmailAccounts] = useState<ConnectedEmailAccount[]>([])
+  const [emailDiscoveries, setEmailDiscoveries] = useState<ConnectedEmailDiscovery[]>([])
+  const [emailDiscoveryUnavailable, setEmailDiscoveryUnavailable] = useState(false)
+  const [analysisError, setAnalysisError] = useState('')
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
@@ -35,15 +41,44 @@ export function DigitalFootprintPage() {
   const load = useCallback(async () => {
     setBusy(true); setError('')
     try {
-      const [sitePage, metricData, recordData, cookieData, requestData, reminderData, accountData, prefData, integrationData, analysisPage] = await Promise.all([
-        api.digitalFootprintWebsites(), api.digitalFootprintMetrics(), api.allDataRecords(), api.cookies(), api.privacyRequests(), api.privacyRequestReminders(), api.websiteAccounts(), api.privacyPreferences(), api.browserIntegrations(), api.websiteAnalyses(0, 50),
+      const [sitePage, metricData, recordData, cookieData, requestData, reminderData, accountData, prefData, integrationData] = await Promise.all([
+        api.digitalFootprintWebsites(), api.digitalFootprintMetrics(), api.allDataRecords(), api.cookies(), api.privacyRequests(), api.privacyRequestReminders(), api.websiteAccounts(), api.privacyPreferences(), api.browserIntegrations(),
       ])
-      setWebsites(sitePage.content); setMetrics(metricData); setRecords(recordData); setCookies(cookieData); setRequests(requestData); setReminders(reminderData); setAccounts(accountData); setPreferences(prefData); setIntegrations(integrationData); setAnalyses(analysisPage.content)
+      setWebsites(sitePage.content); setMetrics(metricData); setRecords(recordData); setCookies(cookieData); setRequests(requestData); setReminders(reminderData); setAccounts(accountData); setPreferences(prefData); setIntegrations(integrationData)
+      const emailResults = await Promise.allSettled([
+        api.connectedEmailStatus(), api.connectedEmailAccounts(), api.connectedEmailDiscoveries(),
+      ])
+      if (emailResults.every(result => result.status === 'fulfilled')) {
+        setConnectedEmailStatus(emailResults[0].status === 'fulfilled' ? emailResults[0].value : null)
+        setConnectedEmailAccounts(emailResults[1].status === 'fulfilled' ? emailResults[1].value : [])
+        setEmailDiscoveries(emailResults[2].status === 'fulfilled' ? emailResults[2].value : [])
+        setEmailDiscoveryUnavailable(false)
+      } else {
+        setEmailDiscoveryUnavailable(true)
+      }
+      try {
+        const analysisPage = await api.websiteAnalyses(0, 50)
+        setAnalyses(analysisPage.content)
+        setAnalysisError('')
+      } catch (e) {
+        setAnalyses([])
+        setAnalysisError(`Website Intelligence analyses are unavailable: ${message(e)}. Your footprint data is still available.`)
+      }
     } catch (e) { setError(message(e)) } finally { setBusy(false) }
   }, [])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 4000); return () => window.clearTimeout(timer) }, [toast])
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const emailDiscovery = url.searchParams.get('emailDiscovery')
+    if (!emailDiscovery) return
+    setToast(emailDiscovery === 'connected'
+      ? 'Gmail connected. You can scan for possible account matches.'
+      : 'Gmail was not connected. You can try again or review the provider setup.')
+    url.searchParams.delete('emailDiscovery')
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
 
   return (
     <div className="df-page">
@@ -61,7 +96,7 @@ export function DigitalFootprintPage() {
 
       <div role="tabpanel" id={`df-panel-${tab}`} aria-labelledby={`df-tab-${tab}`}>
         {tab === 'overview' && <Overview metrics={metrics} websites={websites} requests={requests} busy={busy} onNavigate={setTab} />}
-        {tab === 'websites' && <Websites websites={websites} analyses={analyses} busy={busy} accounts={accounts} onChanged={() => { setToast('Websites updated.'); void load() }} onError={setError} />}
+        {tab === 'websites' && <Websites websites={websites} analyses={analyses} analysisError={analysisError} busy={busy} accounts={accounts} connectedEmailStatus={connectedEmailStatus} connectedEmailAccounts={connectedEmailAccounts} emailDiscoveries={emailDiscoveries} emailDiscoveryUnavailable={emailDiscoveryUnavailable} onChanged={() => { setToast('Websites updated.'); void load() }} onError={setError} />}
         {tab === 'data' && <PersonalData websites={websites} records={records} busy={busy} onChanged={() => { setToast('Personal data inventory updated.'); void load() }} onError={setError} />}
         {tab === 'cookies' && <Cookies websites={websites} cookies={cookies} integrations={integrations} busy={busy} onChanged={() => { setToast('Cookie metadata updated.'); void load() }} onError={setError} />}
         {tab === 'requests' && <Requests websites={websites} requests={requests} reminders={reminders} busy={busy} onChanged={() => { setToast('Privacy request updated.'); void load() }} onError={setError} />}
@@ -102,7 +137,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: '
   return <div className={`df-metric ${tone ? `df-metric-${tone}` : ''}`}><span>{label}</span><strong>{value.toLocaleString()}</strong></div>
 }
 
-function Websites({ websites, analyses, accounts, busy, onChanged, onError }: { websites: TrackedWebsite[]; analyses: WebsiteAnalysis[]; accounts: UserWebsiteAccount[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
+function Websites({ websites, analyses, analysisError, accounts, connectedEmailStatus, connectedEmailAccounts, emailDiscoveries, emailDiscoveryUnavailable, busy, onChanged, onError }: { websites: TrackedWebsite[]; analyses: WebsiteAnalysis[]; analysisError: string; accounts: UserWebsiteAccount[]; connectedEmailStatus: ConnectedEmailStatus | null; connectedEmailAccounts: ConnectedEmailAccount[]; emailDiscoveries: ConnectedEmailDiscovery[]; emailDiscoveryUnavailable: boolean; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [risk, setRisk] = useState('')
@@ -195,6 +230,7 @@ function Websites({ websites, analyses, accounts, busy, onChanged, onError }: { 
   }
 
   return <div className="df-stack">
+    <ConnectedEmailDiscoveryPanel status={connectedEmailStatus} accounts={connectedEmailAccounts} discoveries={emailDiscoveries} unavailable={emailDiscoveryUnavailable} onChanged={onChanged} onError={onError} />
     <section className="panel df-panel">
       <div className="panel-heading"><div><h2>Add a website</h2><p>Add manually, or import an existing Website Intelligence analysis.</p></div></div>
       <div className="df-form-grid">
@@ -214,10 +250,11 @@ function Websites({ websites, analyses, accounts, busy, onChanged, onError }: { 
         </label>
         <button className="button button-outline button-small" onClick={() => void importAnalysis()} disabled={working || !analysisId}>Import</button>
       </div>
+      {analysisError && <p className="field-error" role="status">{analysisError}</p>}
     </section>
 
     <section className="panel df-panel">
-      <div className="panel-heading"><div><h2>Website accounts</h2><p>Record accounts you remember creating. Never enter a website password. Email-connected discovery is not enabled.</p></div></div>
+      <div className="panel-heading"><div><h2>Website accounts</h2><p>Record accounts you remember creating. Never enter a website password. Treat email discoveries as unverified until you confirm them.</p></div></div>
       <div className="df-form-grid">
         <label className="form-label">Website<select value={accountForm.trackedWebsiteId} onChange={e => setAccountForm({ ...accountForm, trackedWebsiteId: e.target.value })}><option value="">Choose…</option>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
         <label className="form-label">Email or username (optional)<input value={accountForm.accountIdentifier} onChange={e => setAccountForm({ ...accountForm, accountIdentifier: e.target.value })} placeholder="you@example.com" /></label>
@@ -263,6 +300,80 @@ function Websites({ websites, analyses, accounts, busy, onChanged, onError }: { 
       </section>)}
     </div>}
   </div>
+}
+
+function ConnectedEmailDiscoveryPanel({ status, accounts, discoveries, unavailable, onChanged, onError }: {
+  status: ConnectedEmailStatus | null
+  accounts: ConnectedEmailAccount[]
+  discoveries: ConnectedEmailDiscovery[]
+  unavailable: boolean
+  onChanged: () => void
+  onError: (message: string) => void
+}) {
+  const [consent, setConsent] = useState(false)
+  const [working, setWorking] = useState(false)
+
+  async function connect() {
+    setWorking(true)
+    try {
+      const result = await api.startConnectedEmailOAuth()
+      window.location.assign(result.authorizationUrl)
+    } catch (error) {
+      onError(message(error))
+      setWorking(false)
+    }
+  }
+
+  async function scan(accountId: string) {
+    setWorking(true)
+    try {
+      const result = await api.scanConnectedEmail(accountId)
+      onError('')
+      onChanged()
+      if (result.possibleAccountsFound === 0) onError('No registration-related sender domains were found in the latest 100 message headers. This does not mean you have no website accounts.')
+    } catch (error) { onError(message(error)) } finally { setWorking(false) }
+  }
+
+  async function act<T>(action: () => Promise<T>, onSuccess?: (result: T) => void) {
+    setWorking(true)
+    try { const result = await action(); onChanged(); onSuccess?.(result) } catch (error) { onError(message(error)) } finally { setWorking(false) }
+  }
+
+  return <section className="panel df-panel">
+    <div className="panel-heading"><div><h2>Discover accounts from email</h2><p>Optional Gmail scan for possible account-related sender domains.</p></div></div>
+    <div className="df-discovery-explanation">
+      {unavailable
+        ? <p role="status">Email discovery is unavailable right now. Your other footprint data is unaffected.</p>
+        : <p>{status?.limitation ?? 'Checking provider availability…'} This cannot retrieve data held by websites or discover every account.</p>}
+    </div>
+    {status?.configured && <>
+      <label className="df-consent">
+        <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />
+        <span>I authorize Link Context to inspect the sender, subject and date headers of up to the latest 100 Gmail messages for registration-related messages. Message bodies are not accessed or stored. I can disconnect at any time.</span>
+      </label>
+      <button className="button button-outline button-small" disabled={!consent || working} onClick={() => void connect()}>
+        {working ? 'Connecting…' : 'Connect Gmail'}
+      </button>
+    </>}
+    {accounts.map(account => <div className="df-email-account" key={account.id}>
+      <span><b>Gmail connected</b> · {account.accountEmail}{account.lastScanAt ? ` · Last scanned ${formatDate(account.lastScanAt)}` : ''}</span>
+      <div className="df-actions">
+        <button className="button button-outline button-small" disabled={working} onClick={() => void scan(account.id)}>Scan for accounts</button>
+        <button className="df-link" disabled={working} onClick={() => { if (confirm('Disconnect Gmail and delete all discoveries imported from it?')) void act(() => api.disconnectConnectedEmail(account.id), result => { if (!result.providerRevocationConfirmed) onError(result.message) }) }}>Disconnect</button>
+      </div>
+    </div>)}
+    {discoveries.length > 0 && <div className="df-stack df-email-discoveries">
+      <h3>Possible account matches</h3>
+      {discoveries.map(discovery => <article className="df-email-discovery" key={discovery.id}>
+        <div><b>{discovery.domain}</b><p>{discovery.evidenceSummary}</p><small>Possible account — needs your confirmation · Low confidence</small></div>
+        <div className="df-actions">
+          {!discovery.confirmedByUser && <button className="button button-outline button-small" disabled={working} onClick={() => void act(() => api.confirmEmailDiscovery(discovery.id))}>Confirm</button>}
+          <button className="df-link" disabled={working} onClick={() => void act(() => api.dismissEmailDiscovery(discovery.id))}>Dismiss</button>
+          <button className="df-link" disabled={working} onClick={() => { if (confirm('Permanently delete this email discovery?')) void act(() => api.deleteEmailDiscovery(discovery.id)) }}>Delete</button>
+        </div>
+      </article>)}
+    </div>}
+  </section>
 }
 
 function PersonalData({ websites, records, busy, onChanged, onError }: { websites: TrackedWebsite[]; records: PersonalDataRecord[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
@@ -537,7 +648,11 @@ function AccountData({ onChanged, onError }: { onChanged: () => void; onError: (
   async function deleteAll() {
     if (!confirm('Delete all Link Context privacy records? This cannot be undone. It does not delete data held by third-party websites.')) return
     setBusy(true)
-    try { await api.deleteDigitalFootprintAccountData(); onChanged() } catch (e) { onError(message(e)) } finally { setBusy(false) }
+    try {
+      const result = await api.deleteDigitalFootprintAccountData()
+      onChanged()
+      if (Number(result.emailProviderRevocationsNotConfirmed ?? 0) > 0) onError(String(result.note ?? 'Provider revocation could not be confirmed; revoke Link Context access in your provider account settings.'))
+    } catch (e) { onError(message(e)) } finally { setBusy(false) }
   }
   return <div className="df-stack">
     <section className="panel df-panel">

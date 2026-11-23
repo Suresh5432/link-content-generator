@@ -20,6 +20,9 @@ vi.mock('./api', () => ({
     searchDigitalFootprintWebsites: vi.fn(), requestPrivacyReview: vi.fn(), addPrivacyRequestEvidence: vi.fn(),
     updatePrivacyRequestStatus: vi.fn(), updateDataRecord: vi.fn(), registerBrowserIntegration: vi.fn(),
     deleteBrowserIntegration: vi.fn(),
+    connectedEmailStatus: vi.fn(), connectedEmailAccounts: vi.fn(), connectedEmailDiscoveries: vi.fn(),
+    startConnectedEmailOAuth: vi.fn(), scanConnectedEmail: vi.fn(), confirmEmailDiscovery: vi.fn(),
+    dismissEmailDiscovery: vi.fn(), deleteEmailDiscovery: vi.fn(), disconnectConnectedEmail: vi.fn(),
   },
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
 }))
@@ -41,6 +44,9 @@ beforeEach(() => {
   vi.mocked(api.websiteAnalyses).mockResolvedValue(page([]))
   vi.mocked(api.privacyRequestReminders).mockResolvedValue([])
   vi.mocked(api.websiteAccounts).mockResolvedValue([])
+  vi.mocked(api.connectedEmailStatus).mockResolvedValue({ configured: false, provider: 'GOOGLE', requiredScope: 'gmail.metadata', limitation: 'Gmail discovery is not configured in this deployment.' })
+  vi.mocked(api.connectedEmailAccounts).mockResolvedValue([])
+  vi.mocked(api.connectedEmailDiscoveries).mockResolvedValue([])
   vi.mocked(api.searchDigitalFootprintWebsites).mockResolvedValue([website])
   vi.mocked(api.updatePrivacyPreferences).mockResolvedValue({ ...prefs, analyticsCookies: true })
 })
@@ -62,6 +68,14 @@ describe('My Digital Footprint', () => {
     expect(await screen.findByRole('heading', { name: 'Example Bank' })).toBeInTheDocument()
     expect(screen.getByText(/Data: email, address/)).toBeInTheDocument()
     expect(screen.getByText(/Trackers: _ga/)).toBeInTheDocument()
+  })
+
+  it('keeps footprint data visible when Website Intelligence analyses are unavailable', async () => {
+    vi.mocked(api.websiteAnalyses).mockRejectedValue(new Error('Request failed (404)'))
+    render(<DigitalFootprintPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'My websites' }))
+    expect(await screen.findByRole('heading', { name: 'Example Bank' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(/Website Intelligence analyses are unavailable/)
   })
 
   it('answers a privacy question using the assistant endpoint', async () => {
@@ -114,5 +128,39 @@ describe('My Digital Footprint', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'My websites' }))
     expect(await screen.findByText('me@example.com', { exact: false })).toBeTruthy()
     expect(screen.getByText(/confirmed by you/)).toBeTruthy()
+  })
+
+  it('explains provider configuration and does not offer a fake connection', async () => {
+    render(<DigitalFootprintPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'My websites' }))
+    expect(await screen.findByText(/Gmail discovery is not configured/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Connect Gmail' })).not.toBeInTheDocument()
+  })
+
+  it('labels email matches as possible accounts and allows user confirmation', async () => {
+    vi.mocked(api.connectedEmailStatus).mockResolvedValue({
+      configured: true, provider: 'GOOGLE', requiredScope: 'gmail.metadata',
+      limitation: 'Checks up to 100 message headers only.',
+    })
+    vi.mocked(api.connectedEmailAccounts).mockResolvedValue([{
+      id: 'gmail-1', provider: 'GOOGLE', accountEmail: 'person@example.test', status: 'CONNECTED',
+      consentedAt: new Date().toISOString(), lastScanAt: null, createdAt: new Date().toISOString(),
+    }])
+    vi.mocked(api.connectedEmailDiscoveries).mockResolvedValue([{
+      id: 'discovery-1', connectedAccountId: 'gmail-1', provider: 'GOOGLE', domain: 'shop.example',
+      evidenceType: 'REGISTRATION_EMAIL', evidenceSummary: 'Registration-related message header matched.',
+      firstSeenAt: null, lastSeenAt: null, confidence: 'LOW', confirmedByUser: false, dismissedByUser: false,
+    }])
+    vi.mocked(api.confirmEmailDiscovery).mockResolvedValue({
+      id: 'discovery-1', connectedAccountId: 'gmail-1', provider: 'GOOGLE', domain: 'shop.example',
+      evidenceType: 'REGISTRATION_EMAIL', evidenceSummary: 'Registration-related message header matched.',
+      firstSeenAt: null, lastSeenAt: null, confidence: 'LOW', confirmedByUser: true, dismissedByUser: false,
+    })
+
+    render(<DigitalFootprintPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'My websites' }))
+    expect(await screen.findByText('Possible account — needs your confirmation · Low confidence')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(api.confirmEmailDiscovery).toHaveBeenCalledWith('discovery-1'))
   })
 })

@@ -9,6 +9,7 @@ import com.linklens.userservice.digitalfootprint.exception.ResourceNotFoundExcep
 import com.linklens.userservice.digitalfootprint.repo.PersonalDataRecordRepository;
 import com.linklens.userservice.digitalfootprint.repo.TrackedWebsiteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class PersonalDataRecordService {
     private final PersonalDataRecordRepository repository;
     private final TrackedWebsiteRepository websiteRepository;
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PersonalDataRecord create(String userId, UUID websiteId, CreatePersonalDataRecordRequest request) {
         websiteRepository.findByIdAndUserId(websiteId, userId)
@@ -60,6 +62,7 @@ public class PersonalDataRecordService {
         return repository.findAllByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PersonalDataRecord update(String userId, UUID recordId, UpdatePersonalDataRecordRequest request) {
         PersonalDataRecord r = repository.findByIdAndUserId(recordId, userId)
@@ -86,6 +89,7 @@ public class PersonalDataRecordService {
         return repository.save(r);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public void delete(String userId, UUID id) {
         PersonalDataRecord r = repository.findByIdAndUserId(id, userId)

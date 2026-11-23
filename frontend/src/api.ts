@@ -1,5 +1,5 @@
 import keycloak from './auth'
-import type { BrowserIntegration, CookieMetadata, CookieRecord, Link, LinkStatus, Notification, NotificationPreferences, Page, PersonalDataRecord, PrivacyMetrics, PrivacyPreference, PrivacyRequest, PrivacyRequestEvidence, PrivacyRequestHistory, Profile, Summary, TrackedWebsite, UserWebsiteAccount, WebsiteAnalysis, WebsitePrivacyContact } from './types'
+import type { BrowserIntegration, ConnectedEmailAccount, ConnectedEmailDiscovery, ConnectedEmailScanResult, ConnectedEmailStatus, CookieMetadata, CookieRecord, Link, LinkStatus, Notification, NotificationPreferences, Page, PersonalDataRecord, PrivacyMetrics, PrivacyPreference, PrivacyRequest, PrivacyRequestEvidence, PrivacyRequestHistory, Profile, Summary, TrackedWebsite, UserWebsiteAccount, WebsiteAnalysis, WebsitePrivacyContact } from './types'
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8084').replace(/\/$/, '')
 
@@ -126,6 +126,15 @@ export const api = {
   createWebsiteAccount: (data: { trackedWebsiteId: string; accountIdentifier?: string; accountCreationDate?: string; accountCategory?: string; sharedInformation?: string; accountStatus?: string; discoverySource?: string; confirmed?: boolean }) => request<UserWebsiteAccount>('/api/v1/digital-footprint/accounts', { method: 'POST', body: JSON.stringify(data) }),
   updateWebsiteAccount: (id: string, data: Partial<Record<string, unknown>>) => request<UserWebsiteAccount>(`/api/v1/digital-footprint/accounts/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteWebsiteAccount: (id: string) => request<void>(`/api/v1/digital-footprint/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  connectedEmailStatus: () => request<ConnectedEmailStatus>('/api/v1/digital-footprint/connected-email/status'),
+  connectedEmailAccounts: () => request<ConnectedEmailAccount[]>('/api/v1/digital-footprint/connected-email/accounts'),
+  connectedEmailDiscoveries: () => request<ConnectedEmailDiscovery[]>('/api/v1/digital-footprint/connected-email/discoveries'),
+  startConnectedEmailOAuth: () => request<{ authorizationUrl: string }>('/api/v1/digital-footprint/connected-email/oauth/google/start', { method: 'POST', body: JSON.stringify({ consent: true }) }),
+  scanConnectedEmail: (accountId: string) => request<ConnectedEmailScanResult>(`/api/v1/digital-footprint/connected-email/accounts/${encodeURIComponent(accountId)}/scan`, { method: 'POST' }),
+  confirmEmailDiscovery: (id: string) => request<ConnectedEmailDiscovery>(`/api/v1/digital-footprint/connected-email/discoveries/${encodeURIComponent(id)}/confirm`, { method: 'POST' }),
+  dismissEmailDiscovery: (id: string) => request<ConnectedEmailDiscovery>(`/api/v1/digital-footprint/connected-email/discoveries/${encodeURIComponent(id)}/dismiss`, { method: 'POST' }),
+  deleteEmailDiscovery: (id: string) => request<void>(`/api/v1/digital-footprint/connected-email/discoveries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  disconnectConnectedEmail: (id: string) => request<{ providerRevocationConfirmed: boolean; message: string }>(`/api/v1/digital-footprint/connected-email/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   privacyContact: (websiteId: string) => request<WebsitePrivacyContact>(`/api/v1/digital-footprint/websites/${encodeURIComponent(websiteId)}/privacy-contact`),
   updatePrivacyContact: (websiteId: string, data: Partial<Record<string, unknown>>) => request<WebsitePrivacyContact>(`/api/v1/digital-footprint/websites/${encodeURIComponent(websiteId)}/privacy-contact`, { method: 'PUT', body: JSON.stringify(data) }),
   cookies: (domain?: string) => request<CookieRecord[]>(`/api/v1/cookies${query({ domain })}`),

@@ -233,6 +233,7 @@ services:
       USER_SERVICE_URL: http://user-service:8085
       NOTIFICATION_SERVICE_URL: http://notification-service:8086
       SUMMARY_SERVICE_URL: http://summarization-service:8083
+      EXTRACTION_SERVICE_URL: http://extraction-service:8082
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
     depends_on:
@@ -245,6 +246,8 @@ services:
       user-service:
         condition: service_healthy
       notification-service:
+        condition: service_healthy
+      extraction-service:
         condition: service_healthy
     networks: [default, data-network, messaging-network, identity-network]
 
@@ -396,6 +399,12 @@ services:
       INTERNAL_USER_LOOKUP_CLIENT_IDS: ${INTERNAL_USER_LOOKUP_CLIENT_IDS:-notification-service,link-service,summarization-service}
       KEYCLOAK_EXPECTED_AUDIENCE: ${USER_SERVICE_EXPECTED_AUDIENCE:-user-service}
       SECURITY_JWT_EXPECTED_AUDIENCE: ${USER_SERVICE_EXPECTED_AUDIENCE:-user-service}
+      GOOGLE_EMAIL_DISCOVERY_ENABLED: ${GOOGLE_EMAIL_DISCOVERY_ENABLED:-false}
+      GOOGLE_EMAIL_DISCOVERY_ENCRYPTION_KEY: ${GOOGLE_EMAIL_DISCOVERY_ENCRYPTION_KEY:-}
+      GOOGLE_EMAIL_DISCOVERY_FRONTEND_URL: ${GOOGLE_EMAIL_DISCOVERY_FRONTEND_URL:-http://localhost:5173/digital-footprint}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8084/api/v1/digital-footprint/connected-email/oauth/google/callback}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       postgres:

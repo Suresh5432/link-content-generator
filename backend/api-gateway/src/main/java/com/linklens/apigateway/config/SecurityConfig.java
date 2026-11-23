@@ -49,6 +49,8 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/actuator/prometheus"
                             ).permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                        "/api/v1/digital-footprint/connected-email/oauth/google/callback").permitAll()
                 .requestMatchers("/internal/**", "/actuator/**").denyAll()
                                 .requestMatchers("/api/v1/admin/**")
                                 .hasAnyRole("ADMIN")

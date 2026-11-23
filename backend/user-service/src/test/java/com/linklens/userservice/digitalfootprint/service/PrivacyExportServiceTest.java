@@ -1,6 +1,7 @@
 package com.linklens.userservice.digitalfootprint.service;
 
 import com.linkcontext.contracts.EventRoutingKey;
+import com.linklens.userservice.digitalfootprint.entity.ConnectedEmailAccount;
 import com.linklens.userservice.digitalfootprint.messaging.PrivacyEventPublisher;
 import com.linklens.userservice.digitalfootprint.repo.*;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,8 @@ class PrivacyExportServiceTest {
     @Mock PrivacyEventOutboxRepository outboxRepository;
     @Mock ConnectedEmailAccountRepository connectedEmailAccountRepository;
     @Mock ConnectedEmailDiscoveryRepository connectedEmailDiscoveryRepository;
+    @Mock ConnectedEmailOAuthStateRepository connectedEmailOAuthStateRepository;
+    @Mock ConnectedEmailOAuthService connectedEmailOAuthService;
     @Mock PrivacyEventPublisher eventPublisher;
     @InjectMocks PrivacyExportService service;
 
@@ -71,13 +74,21 @@ class PrivacyExportServiceTest {
         when(integrationRepository.findAllByUserIdOrderByCreatedAtDesc("u1")).thenReturn(List.of());
         when(discoveryFindingRepository.findAllByUserIdOrderByDomainAscCreatedAtAsc("u1")).thenReturn(List.of());
         when(outboxRepository.findAllByUserIdOrderByCreatedAtDesc("u1")).thenReturn(List.of());
+        UUID emailAccountId = java.util.UUID.randomUUID();
         when(connectedEmailDiscoveryRepository.findAllByUserIdOrderByLastSeenAtDesc("u1")).thenReturn(List.of());
-        when(connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc("u1")).thenReturn(List.of());
+        when(connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc("u1"))
+                .thenReturn(List.of(ConnectedEmailAccount.builder().id(emailAccountId).userId("u1").build()));
+        when(connectedEmailOAuthService.disconnect("u1", emailAccountId))
+                .thenReturn(new ConnectedEmailOAuthService.DisconnectResult(false, "not confirmed"));
         when(websiteRepository.findAllByUserIdOrderByCreatedAtDesc("u1")).thenReturn(List.of());
 
         Map<String, Object> result = service.deleteAllFootprintData("u1");
 
         assertEquals("DIGITAL_FOOTPRINT", ((Map<?, ?>) result.get("scope")).get("dataClass"));
+        assertEquals(1, result.get("connectedEmailAccounts"));
+        assertEquals(1, result.get("emailProviderRevocationsNotConfirmed"));
+        assertTrue(String.valueOf(result.get("note")).contains("revoke Link Context access"));
+        verify(connectedEmailOAuthService).disconnect("u1", emailAccountId);
         ArgumentCaptor<String> routing = ArgumentCaptor.forClass(String.class);
         verify(eventPublisher).record(eq(EventRoutingKey.USER_FOOTPRINT_DELETED), any());
         assertNotNull(result.get("deletedAt"));

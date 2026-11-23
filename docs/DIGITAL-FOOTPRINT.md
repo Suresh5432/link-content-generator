@@ -42,7 +42,7 @@ Hibernate runs with `ddl-auto=validate`; the Flyway migrations are exercised by 
 
 ## Public API
 
-All routes are behind the gateway and require a Keycloak JWT. Every user-scoped query is filtered by the token `sub`; a request for another user's record returns `404` or `403`, never the record.
+All user-scoped routes are behind the gateway and require a Keycloak JWT. The exact Google OAuth callback route is public so Google can redirect to it; a hashed, expiring, single-use state and PKCE verifier bind it to a user-initiated connection. Every user-scoped query is filtered by the token `sub`; a request for another user's record returns `404` or `403`, never the record.
 
 ### Websites
 
@@ -66,12 +66,25 @@ Removing a website from the dashboard is documented in the API/UI as removing th
 ### Accounts, cookies, browser integration
 
 - `GET|POST /api/v1/digital-footprint/accounts`; `PATCH|DELETE /api/v1/digital-footprint/accounts/{id}`
+- Connected email discovery: `GET /api/v1/digital-footprint/connected-email/status|accounts|discoveries`; `POST /api/v1/digital-footprint/connected-email/oauth/google/start`; public callback `GET /api/v1/digital-footprint/connected-email/oauth/google/callback`; `POST /api/v1/digital-footprint/connected-email/accounts/{id}/scan`; `POST .../discoveries/{id}/confirm|dismiss`; `DELETE .../discoveries/{id}`; `DELETE .../accounts/{id}`.
 - `GET /api/v1/cookies`, `GET /api/v1/cookies/domains`, `GET /api/v1/cookies/tracking`
 - `DELETE /api/v1/cookies/inventory/{cookieId}` — deletes **metadata only** and returns a message explaining that the browser cookie remains until removed in the browser.
 - `POST /api/v1/browser-integrations/register`, `POST /api/v1/browser-integrations/sync`
 - `GET /api/v1/browser-integrations/{id}/history`, `DELETE /api/v1/browser-integrations/{id}`
 
 `CookieMetadata` has no `value` field by design. Sync accepts metadata only and is capped at 5,000 cookies per request.
+
+Gmail discovery is optional and disabled unless explicitly configured. It uses Google OAuth Authorization Code with PKCE and requests only `openid`, `email`, and `https://www.googleapis.com/auth/gmail.metadata`. The scanner inspects headers for at most the latest 100 messages; it does not request message bodies, store full subjects, or send mailbox data to AI. A match is based on a registration-related subject category and sender domain, so every result is a **possible account** with low confidence and requires user confirmation; sender domains can belong to a mailing provider rather than the website.
+
+To enable it, configure a Google OAuth web application, enable Gmail API access, add the exact callback URI below to the OAuth client, and complete any Google consent-screen verification/approval required for the account and deployment:
+
+```text
+http://localhost:8084/api/v1/digital-footprint/connected-email/oauth/google/callback
+```
+
+Set `GOOGLE_EMAIL_DISCOVERY_ENABLED=true`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `GOOGLE_EMAIL_DISCOVERY_FRONTEND_URL`, and `GOOGLE_EMAIL_DISCOVERY_ENCRYPTION_KEY`. The encryption key must be Base64 encoding of exactly 32 random bytes; keep it in the ignored local `.env` or a deployment secret manager, and do not rotate it without re-encrypting stored tokens. OAuth state and PKCE verifier are single-use, expire after five minutes, and are stored hashed/encrypted. Refresh tokens are AES-GCM encrypted at rest; access tokens and email message content are not persisted. Disconnect attempts Google token revocation, then removes the local token and discoveries; if revocation cannot be confirmed, the UI instructs the user to revoke access in Google Account settings.
+
+This feature only helps identify possible accounts from recent Gmail headers. It cannot enumerate all accounts, prove that the user created an account, access website-side personal data, or retrieve it. Users must use a website's official access-request process to learn what that website holds.
 
 ### Privacy contacts and preferences
 
@@ -108,7 +121,7 @@ Guardrails enforced in code and tests:
 - `GET /api/v1/digital-footprint/export`
 - `DELETE /api/v1/digital-footprint/account-data`
 
-The delete endpoint removes footprint-owned rows and returns counts plus a notice about legal/operational retention. It is scoped to the authenticated subject.
+The delete endpoint removes footprint-owned rows and returns counts plus a notice about legal/operational retention. It attempts to revoke connected-email provider access before deleting each local credential; if provider revocation cannot be confirmed, the response tells the user to revoke access in the provider account settings. It is scoped to the authenticated subject.
 
 ### AI
 
@@ -200,7 +213,7 @@ A single unfiltered `mvn test` in this workspace is resource-sensitive: with the
 
 ## Deliberate limitations
 
-- No connected-email OAuth discovery (registration/verification email scanning) is implemented. Manual account records are supported. Any future implementation must use read-only scopes, never mailbox deletion, extract only registration evidence, and mark results as possible until confirmed.
+- Connected Gmail discovery is available only when an operator configures and obtains any required provider approval. It scans at most 100 message headers, not message bodies, and will miss accounts outside that sample or where sender domains do not identify the website. Results are unverified possibilities.
 - No automatic request submission. The safe path is: prepared message + official channel + user action + recorded reference/evidence.
 - No file-upload evidence; evidence is textual/URL references. Secure upload can be added later with malware scanning, size/type limits and private storage.
 - Deleting cookie metadata does not delete browser cookies; the extension or the user's browser does.

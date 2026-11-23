@@ -18,6 +18,7 @@ import com.linklens.userservice.digitalfootprint.repo.PrivacyRequestHistoryRepos
 import com.linklens.userservice.digitalfootprint.repo.PrivacyRequestRepository;
 import com.linklens.userservice.digitalfootprint.repo.TrackedWebsiteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class PrivacyRequestService {
     private final TrackedWebsiteRepository websiteRepository;
     private final ApplicationEventPublisher events;
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PrivacyRequest create(String userId, CreatePrivacyRequest request) {
         PrivacyRequestType type = PrivacyRequestType.parse(request.requestType());
@@ -96,6 +98,7 @@ public class PrivacyRequestService {
         return requireOwned(userId, id);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PrivacyRequest update(String userId, UUID id, UpdatePrivacyRequestRequest request) {
         PrivacyRequest r = requireOwned(userId, id);
@@ -122,6 +125,7 @@ public class PrivacyRequestService {
         return repository.save(r);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PrivacyRequest requestReview(String userId, UUID id) {
         PrivacyRequest r = requireOwned(userId, id);
@@ -130,6 +134,7 @@ public class PrivacyRequestService {
         return repository.save(r);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PrivacyRequest approve(String userId, UUID id) {
         PrivacyRequest r = requireOwned(userId, id);
@@ -149,6 +154,7 @@ public class PrivacyRequestService {
         return repository.save(r);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PrivacyRequest submit(String userId, UUID id, String submissionMethod, String externalReference) {
         PrivacyRequest r = requireOwned(userId, id);
@@ -179,6 +185,7 @@ public class PrivacyRequestService {
         return repository.save(r);
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public PrivacyRequest updateStatus(String userId, UUID id, String statusValue, String note) {
         PrivacyRequest r = requireOwned(userId, id);

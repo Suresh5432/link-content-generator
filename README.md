@@ -21,7 +21,7 @@ Each service owns its database. Do not connect one service directly to another s
 
 ## My Digital Footprint
 
-See `docs/DIGITAL-FOOTPRINT.md`. Current safety limits: connected-email live provider scanning is disabled by default and not configured; evidence file uploads and automated submission are intentionally unsupported. Browser extension sync requires explicit API origin authorization and never uploads cookie/storage values.
+See `docs/DIGITAL-FOOTPRINT.md`. Optional Gmail account discovery is disabled until an operator configures Google OAuth credentials and a 32-byte encryption key; it inspects only recent message headers and reports unverified possible matches, not all accounts or website-held data. Evidence file uploads and automated request submission are intentionally unsupported. Browser extension sync requires explicit API origin authorization and never uploads cookie/storage values.
 
 
 The workspace now includes a privacy dashboard where a signed-in user can track websites and category-level personal-data records, sync cookie/tracker metadata through an optional browser extension, discover public privacy-request channels, generate and approve deletion/access requests, track responses and reminders, ask a grounded AI assistant about their own records, and export or delete their footprint data.

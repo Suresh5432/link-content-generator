@@ -30,6 +30,10 @@ public class ConnectedEmailAccount {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(name = "refresh_token_ciphertext")
+    private byte[] refreshTokenCiphertext;
+    @Column(name = "refresh_token_iv")
+    private byte[] refreshTokenIv;
 
     @PrePersist public void onCreate() { createdAt = Instant.now(); updatedAt = Instant.now(); if (status == null) status = "DISABLED"; }
     @PreUpdate public void onUpdate() { updatedAt = Instant.now(); }

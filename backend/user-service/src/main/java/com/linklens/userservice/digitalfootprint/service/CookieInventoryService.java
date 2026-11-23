@@ -12,6 +12,7 @@ import com.linklens.userservice.digitalfootprint.repo.BrowserIntegrationReposito
 import com.linklens.userservice.digitalfootprint.repo.BrowserSyncHistoryRepository;
 import com.linklens.userservice.digitalfootprint.repo.CookieInventoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,7 @@ public class CookieInventoryService {
      * Removes only the stored metadata record. The API deliberately does not and
      * cannot delete cookies from a user's browser; the extension performs that.
      */
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public String deleteMetadata(String userId, UUID cookieId) {
         CookieInventory cookie = repository.findByIdAndUserId(cookieId, userId)
@@ -60,6 +62,9 @@ public class CookieInventoryService {
         return "Cookie metadata removed from your Link Context dashboard. The cookie itself remains in your browser until you remove it with the browser extension.";
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public SyncResult sync(String userId, SyncCookiesRequest request) {
         if (request.cookies() == null) throw new InvalidRequestException("cookies is required");

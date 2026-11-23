@@ -84,6 +84,43 @@ export interface UserWebsiteAccount {
   updatedAt: string
 }
 
+export interface ConnectedEmailStatus {
+  configured: boolean
+  provider: string
+  requiredScope: string
+  limitation: string
+}
+
+export interface ConnectedEmailAccount {
+  id: string
+  provider: string
+  accountEmail: string
+  status: string
+  consentedAt: string | null
+  lastScanAt: string | null
+  createdAt: string
+}
+
+export interface ConnectedEmailDiscovery {
+  id: string
+  connectedAccountId: string
+  provider: string
+  domain: string
+  evidenceType: string
+  evidenceSummary: string
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  confidence: string
+  confirmedByUser: boolean
+  dismissedByUser: boolean
+}
+
+export interface ConnectedEmailScanResult {
+  messagesReviewed: number
+  possibleAccountsFound: number
+  discoveries: ConnectedEmailDiscovery[]
+}
+
 export type CookieCategory = 'ESSENTIAL' | 'FUNCTIONAL' | 'ANALYTICS' | 'ADVERTISING' | 'SOCIAL_MEDIA' | 'UNKNOWN'
 
 export interface CookieRecord {

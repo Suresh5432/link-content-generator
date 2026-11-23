@@ -30,7 +30,8 @@ public class SecurityConfig {
                                  "/actuator/health",
                                  "/actuator/health/**",
                                  "/actuator/prometheus").permitAll()
-                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                  .requestMatchers(HttpMethod.GET, "/api/v1/digital-footprint/connected-email/oauth/google/callback").permitAll()
+                                  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                                  .requestMatchers("/internal/v1/**").hasAnyAuthority("SCOPE_users.read")
                                  .requestMatchers("/api/v1/**").hasAnyAuthority("ROLE_USER")
                                  .anyRequest().authenticated()

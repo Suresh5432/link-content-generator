@@ -167,7 +167,7 @@ def ensure_application_user_role(base: str, realm: str, headers: dict[str, str])
             if any(mapping.get("id") == role.get("id") for mapping in mappings):
                 continue
             assign = urllib.request.Request(
-                mappings_path,
+                f"{base}{mappings_path}",
                 data=json.dumps([role]).encode(),
                 headers=headers,
                 method="POST",
@@ -215,6 +215,7 @@ def main() -> int:
         audiences = [
             ("gateway", config.get("KEYCLOAK_EXPECTED_AUDIENCE", "link-context-gateway").strip()),
             ("link-service", config.get("LINK_SERVICE_EXPECTED_AUDIENCE", "link-service").strip()),
+            ("extraction-service", config.get("EXTRACTION_SERVICE_EXPECTED_AUDIENCE", "extraction-service").strip()),
             ("summarization-service", config.get("SUMMARIZATION_SERVICE_EXPECTED_AUDIENCE", "summarization-service").strip()),
             ("user-service", config.get("USER_SERVICE_EXPECTED_AUDIENCE", "user-service").strip()),
             ("notification-service", config.get("NOTIFICATION_SERVICE_EXPECTED_AUDIENCE", "notification-service").strip()),

@@ -15,6 +15,18 @@
 .df-tab-active { background: #1d1d1f; color: #fff; opacity: 1; }
 .df-stack { display: flex; flex-direction: column; gap: 16px; }
 .df-panel { padding: 18px; }
+.df-discovery-explanation { margin-top: 12px; color: #78837a; font-size: 11px; line-height: 1.6; }
+.df-discovery-explanation p { margin: 0; }
+.df-consent { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; color: #59645b; font-size: 11px; line-height: 1.55; }
+.df-consent input { margin-top: 2px; accent-color: #39765d; flex: 0 0 auto; }
+.df-email-account, .df-email-discovery { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid #f0f2ef; padding: 12px 0; font-size: 11px; }
+.df-email-account { margin-top: 12px; }
+.df-email-discoveries { margin-top: 16px; }
+.df-email-discoveries h3 { margin: 0; font: 700 12px var(--serif); }
+.df-email-discovery p { margin: 5px 0; color: #758077; font-size: 10px; line-height: 1.5; }
+.df-email-discovery small { color: #987b41; font-size: 9px; }
+.df-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.df-link:disabled { opacity: .5; cursor: wait; }
 .df-muted { opacity: .65; }
 .df-metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 .df-metric { background: #fff; border: 1px solid rgba(0,0,0,.07); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }

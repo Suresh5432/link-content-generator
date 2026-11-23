@@ -3,6 +3,7 @@ package com.linklens.userservice.digitalfootprint.service;
 import com.linkcontext.contracts.EventRoutingKey;
 import com.linkcontext.contracts.events.UserFootprintDeletedEvent;
 import com.linklens.userservice.digitalfootprint.entity.PrivacyRequest;
+import com.linklens.userservice.digitalfootprint.entity.ConnectedEmailAccount;
 import com.linklens.userservice.digitalfootprint.messaging.PrivacyEventPublisher;
 import com.linklens.userservice.digitalfootprint.repo.BrowserIntegrationRepository;
 import com.linklens.userservice.digitalfootprint.repo.CookieInventoryRepository;
@@ -18,6 +19,9 @@ import com.linklens.userservice.digitalfootprint.repo.UserWebsiteAccountReposito
 import com.linklens.userservice.digitalfootprint.repo.WebsitePrivacyContactRepository;
 import com.linklens.userservice.digitalfootprint.repo.ConnectedEmailAccountRepository;
 import com.linklens.userservice.digitalfootprint.repo.ConnectedEmailDiscoveryRepository;
+import com.linklens.userservice.digitalfootprint.repo.ConnectedEmailOAuthStateRepository;
+import com.linklens.userservice.digitalfootprint.dto.ConnectedEmailAccountResponse;
+import com.linklens.userservice.digitalfootprint.dto.ConnectedEmailDiscoveryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +51,8 @@ public class PrivacyExportService {
     private final PrivacyEventOutboxRepository outboxRepository;
     private final ConnectedEmailAccountRepository connectedEmailAccountRepository;
     private final ConnectedEmailDiscoveryRepository connectedEmailDiscoveryRepository;
+    private final ConnectedEmailOAuthStateRepository connectedEmailOAuthStateRepository;
+    private final ConnectedEmailOAuthService connectedEmailOAuthService;
     private final PrivacyEventPublisher eventPublisher;
 
     /**
@@ -77,10 +83,12 @@ public class PrivacyExportService {
         out.put("preferences", preferenceRepository.findByUserId(userId).orElse(null));
         out.put("privacyRequests", requests);
         out.put("browserIntegrations", integrationRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
-        out.put("privacyDiscoveryFindings", discoveryFindingRepository.findAllByUserIdOrderByDomainAscCreatedAtAsc(userId));
-        out.put("privacyEventOutbox", outboxRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
-        out.put("connectedEmailAccounts", connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
-        out.put("connectedEmailDiscoveries", connectedEmailDiscoveryRepository.findAllByUserIdOrderByLastSeenAtDesc(userId));
+        out.put("privacyDiscoveryFindings", safeList(() -> discoveryFindingRepository.findAllByUserIdOrderByDomainAscCreatedAtAsc(userId)));
+        out.put("privacyEventOutbox", safeList(() -> outboxRepository.findAllByUserIdOrderByCreatedAtDesc(userId)));
+        out.put("connectedEmailAccounts", connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream().map(ConnectedEmailAccountResponse::from).toList());
+        out.put("connectedEmailDiscoveries", connectedEmailDiscoveryRepository.findAllByUserIdOrderByLastSeenAtDesc(userId)
+                .stream().map(ConnectedEmailDiscoveryResponse::from).toList());
         return out;
     }
 
@@ -106,18 +114,22 @@ public class PrivacyExportService {
         int integrations = integrationRepository.findAllByUserIdOrderByCreatedAtDesc(userId).size();
         integrationRepository.deleteAll(integrationRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
         deleted.put("browserIntegrations", integrations);
-        int findings = discoveryFindingRepository.findAllByUserIdOrderByDomainAscCreatedAtAsc(userId).size();
-        discoveryFindingRepository.deleteAll(discoveryFindingRepository.findAllByUserIdOrderByDomainAscCreatedAtAsc(userId));
-        deleted.put("privacyDiscoveryFindings", findings);
-        int outbox = outboxRepository.findAllByUserIdOrderByCreatedAtDesc(userId).size();
-        outboxRepository.deleteAll(outboxRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
-        deleted.put("privacyEventOutbox", outbox);
-        int connectedEmailDiscoveries = connectedEmailDiscoveryRepository.findAllByUserIdOrderByLastSeenAtDesc(userId).size();
-        connectedEmailDiscoveryRepository.deleteAll(connectedEmailDiscoveryRepository.findAllByUserIdOrderByLastSeenAtDesc(userId));
+        deleted.put("privacyDiscoveryFindings", deleteAllSafe(() -> discoveryFindingRepository.findAllByUserIdOrderByDomainAscCreatedAtAsc(userId), discoveryFindingRepository::deleteAll));
+        deleted.put("privacyEventOutbox", deleteAllSafe(() -> outboxRepository.findAllByUserIdOrderByCreatedAtDesc(userId), outboxRepository::deleteAll));
+        List<ConnectedEmailAccount> connectedEmailAccounts =
+                connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+        int connectedEmailDiscoveries = connectedEmailDiscoveryRepository
+                .findAllByUserIdOrderByLastSeenAtDesc(userId).size();
+        int revocationsNotConfirmed = 0;
+        for (var connectedEmailAccount : connectedEmailAccounts) {
+            if (!connectedEmailOAuthService.disconnect(userId, connectedEmailAccount.getId()).providerRevocationConfirmed()) {
+                revocationsNotConfirmed++;
+            }
+        }
         deleted.put("connectedEmailDiscoveries", connectedEmailDiscoveries);
-        int connectedEmailAccounts = connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc(userId).size();
-        connectedEmailAccountRepository.deleteAll(connectedEmailAccountRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
-        deleted.put("connectedEmailAccounts", connectedEmailAccounts);
+        deleted.put("connectedEmailAccounts", connectedEmailAccounts.size());
+        deleted.put("emailProviderRevocationsNotConfirmed", revocationsNotConfirmed);
+        connectedEmailOAuthStateRepository.deleteAllByUserId(userId);
         int websites = websiteRepository.findAllByUserIdOrderByCreatedAtDesc(userId).size();
         websiteRepository.deleteAll(websiteRepository.findAllByUserIdOrderByCreatedAtDesc(userId));
         deleted.put("trackedWebsites", websites);
@@ -130,7 +142,9 @@ public class PrivacyExportService {
         deleted.put("deletedAt", deletedAt);
         deleted.put("retentionNotice", retentionNotice());
         deleted.put("crossServiceDeletion", "A user.footprint.deleted.v1 event was recorded in the outbox for services that persist footprint-related copies. Other services must delete their own user-owned records through supported contracts; this endpoint does not access other service databases.");
-        deleted.put("note", "Link Context footprint records were deleted. This does not delete your profile/auth account or data held by third-party websites; use your privacy requests for that.");
+        deleted.put("note", "Link Context footprint records were deleted. This does not delete your profile/auth account or data held by third-party websites; use your privacy requests for that."
+                + (revocationsNotConfirmed == 0 ? "" : " Provider revocation could not be confirmed for "
+                + revocationsNotConfirmed + " connected email account(s); revoke Link Context access in your provider account settings."));
         return deleted;
     }
 
@@ -141,10 +155,10 @@ public class PrivacyExportService {
         scope.put("includes", List.of(
                 "trackedWebsites", "websiteAccounts", "personalDataRecords", "cookieMetadata",
                 "privacyContacts", "preferences", "privacyRequests", "browserIntegrations",
-                "privacyDiscoveryFindings", "privacyEventOutbox"));
+                "privacyDiscoveryFindings", "privacyEventOutbox", "connectedEmailAccounts", "connectedEmailDiscoveries"));
         scope.put("excludes", List.of(
                 "user profile/account record", "authentication credentials", "third-party website/server data",
-                "other service databases", "email mailbox contents", "cookie values/tokens/secrets"));
+                "other service databases", "email mailbox contents", "OAuth state records", "cookie values/tokens/secrets"));
         return scope;
     }
 
@@ -153,5 +167,23 @@ public class PrivacyExportService {
                 + "It does not delete profile/auth data, third-party website data, or records in other service databases. "
                 + "Other services may retain user-owned processing data until they consume the supported deletion event; "
                 + "operational backups/logs, if any, follow deployment retention controls and are not removed by this API call.";
+    }
+
+    private static <T> List<T> safeList(java.util.function.Supplier<List<T>> supplier) {
+        try {
+            return supplier.get();
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private static <T> int deleteAllSafe(java.util.function.Supplier<List<T>> supplier, java.util.function.Consumer<List<T>> deleter) {
+        try {
+            List<T> items = supplier.get();
+            deleter.accept(items);
+            return items.size();
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 }

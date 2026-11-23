@@ -31,6 +31,8 @@ public class ConnectedEmailDiscovery {
     private String confidence;
     @Column(name = "confirmed_by_user", nullable = false)
     private boolean confirmedByUser;
+    @Column(name = "dismissed_by_user", nullable = false)
+    private boolean dismissedByUser;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)

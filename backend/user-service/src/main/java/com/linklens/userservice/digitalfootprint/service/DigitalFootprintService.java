@@ -15,6 +15,8 @@ import com.linklens.userservice.digitalfootprint.repo.PersonalDataRecordReposito
 import com.linklens.userservice.digitalfootprint.repo.PrivacyRequestRepository;
 import com.linklens.userservice.digitalfootprint.repo.TrackedWebsiteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -47,6 +49,7 @@ public class DigitalFootprintService {
     private final CookieInventoryRepository cookieRepository;
     private final PrivacyDiscoveryService privacyDiscoveryService;
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public TrackedWebsite create(String userId, CreateTrackedWebsiteRequest request) {
         TrackedWebsite w = TrackedWebsite.builder()
@@ -69,6 +72,7 @@ public class DigitalFootprintService {
         return saved;
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public TrackedWebsite importFromAnalysis(String userId, ImportWebsiteRequest request) {
         UUID analysisId = Ids.parseUuid(request.analysisId(), "analysisId");
@@ -103,6 +107,7 @@ public class DigitalFootprintService {
         return saved;
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public TrackedWebsite update(String userId, UUID id, UpdateTrackedWebsiteRequest request) {
         TrackedWebsite w = requireOwned(userId, id);
@@ -147,6 +152,7 @@ public class DigitalFootprintService {
         return results;
     }
 
+    @Cacheable(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional(readOnly = true)
     public Map<String, Object> metrics(String userId) {
         List<TrackedWebsite> all = repository.findAllByUserIdOrderByCreatedAtDesc(userId);
@@ -186,6 +192,7 @@ public class DigitalFootprintService {
         return repository.findAllByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
     }
 
+    @CacheEvict(cacheNames = "digitalFootprintMetrics", key = "#userId")
     @Transactional
     public void delete(String userId, UUID id) {
         TrackedWebsite w = requireOwned(userId, id);
