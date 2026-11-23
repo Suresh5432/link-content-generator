@@ -36,6 +36,10 @@ public class RabbitMQConfig {
     public static final String DLQ_ROUTING_KEY=
             "content-extracted.dlq";
 
+    public static final String LINK_EVENTS_EXCHANGE = "link.events";
+    public static final String USER_FOOTPRINT_DELETED_QUEUE = "summarization.user-footprint-deleted";
+    public static final String USER_FOOTPRINT_DELETED_ROUTING_KEY = "user.footprint.deleted.v1";
+
     @Bean
     public TopicExchange extractionExchange(){
         return new TopicExchange(EXTRACTION_EXCHANGE, true, false);
@@ -79,6 +83,23 @@ public class RabbitMQConfig {
     @Bean
     public TopicExchange dlqExchange(){
         return new TopicExchange(DLQ_EXCHANGE,true,false);
+    }
+
+    @Bean
+    public TopicExchange linkEventsExchange() {
+        return new TopicExchange(LINK_EVENTS_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue userFootprintDeletedQueue() {
+        return QueueBuilder.durable(USER_FOOTPRINT_DELETED_QUEUE).build();
+    }
+
+    @Bean
+    public Binding userFootprintDeletedBinding() {
+        return BindingBuilder.bind(userFootprintDeletedQueue())
+                .to(linkEventsExchange())
+                .with(USER_FOOTPRINT_DELETED_ROUTING_KEY);
     }
 
     @Bean

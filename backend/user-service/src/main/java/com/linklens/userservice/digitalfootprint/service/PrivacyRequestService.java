@@ -63,6 +63,11 @@ public class PrivacyRequestService {
         String message = trimToNull(request.requestMessage());
         if (message == null) message = PrivacyRequestMessageFactory.build(type, trimToNull(request.dataCategories()));
         SensitiveDataGuard.rejectSecretMaterial(request.requestMessage());
+        SensitiveDataGuard.rejectSecretMaterial(request.privacyContactUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.privacyContactEmail());
+        SensitiveDataGuard.rejectSecretMaterial(request.dataCategories());
+        SensitiveDataGuard.rejectSecretMaterial(request.preferredContact());
+        SensitiveDataGuard.rejectSecretMaterial(request.legalBasis());
         PrivacyRequest r = PrivacyRequest.builder()
                 .userId(userId)
                 .trackedWebsiteId(websiteId)
@@ -96,14 +101,20 @@ public class PrivacyRequestService {
         PrivacyRequest r = requireOwned(userId, id);
         if (isTerminal(r)) throw new IllegalStateTransitionException("Completed, rejected, expired or cancelled requests cannot be edited");
         SensitiveDataGuard.rejectSecretMaterial(request.requestMessage());
+        SensitiveDataGuard.rejectSecretMaterial(request.privacyContactUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.privacyContactEmail());
+        SensitiveDataGuard.rejectSecretMaterial(request.dataCategories());
+        SensitiveDataGuard.rejectSecretMaterial(request.preferredContact());
+        SensitiveDataGuard.rejectSecretMaterial(request.legalBasis());
+        if (request.submissionMethod() != null || request.submissionEvidence() != null) {
+            throw new InvalidRequestException("Submission details are recorded by the submit endpoint or as evidence");
+        }
         if (request.requestMessage() != null) r.setRequestMessage(trimToNull(request.requestMessage()));
         if (request.privacyContactUrl() != null) r.setPrivacyContactUrl(trimToNull(request.privacyContactUrl()));
         if (request.privacyContactEmail() != null) r.setPrivacyContactEmail(trimToNull(request.privacyContactEmail()));
         if (request.dataCategories() != null) r.setDataCategories(trimToNull(request.dataCategories()));
         if (request.preferredContact() != null) r.setPreferredContact(trimToNull(request.preferredContact()));
         if (request.legalBasis() != null) r.setLegalBasis(trimToNull(request.legalBasis()));
-        if (request.submissionMethod() != null) r.setSubmissionMethod(trimToNull(request.submissionMethod()));
-        if (request.submissionEvidence() != null) r.setSubmissionEvidence(trimToNull(request.submissionEvidence()));
         if (request.expectedResponseDate() != null) r.setExpectedResponseDate(Ids.parseDate(request.expectedResponseDate(), "expectedResponseDate"));
         if (r.getStatus().equals(PrivacyRequestStatus.DRAFT.name()) || r.getStatus().equals(PrivacyRequestStatus.READY_FOR_REVIEW.name())) {
             transition(r, PrivacyRequestStatus.READY_FOR_REVIEW, "Request edited and ready for review");
@@ -177,9 +188,16 @@ public class PrivacyRequestService {
         } catch (IllegalArgumentException e) {
             throw new InvalidRequestException("Unknown request status: " + statusValue);
         }
-        if (target == PrivacyRequestStatus.SUBMITTED && r.getApprovedAt() == null) {
-            throw new IllegalStateTransitionException("The request must be approved by the user before submission");
+        if (target == PrivacyRequestStatus.SUBMITTED) {
+            throw new IllegalStateTransitionException("Use the submit endpoint after the user approves the exact message");
         }
+        if (target == PrivacyRequestStatus.COMPLETED) {
+            throw new IllegalStateTransitionException("Completion requires independent user verification");
+        }
+        if (target == PrivacyRequestStatus.AWAITING_USER_APPROVAL || target == PrivacyRequestStatus.READY_FOR_REVIEW) {
+            throw new IllegalStateTransitionException("Use the prepare and approval endpoints for review states");
+        }
+        SensitiveDataGuard.rejectSecretMaterial(note);
         transition(r, target, note == null || note.isBlank() ? "Status updated by user" : note.trim());
         if (target == PrivacyRequestStatus.ACKNOWLEDGED) r.setAcknowledgedAt(Instant.now());
         if (target == PrivacyRequestStatus.COMPLETED) r.setCompletedAt(Instant.now());
@@ -190,6 +208,7 @@ public class PrivacyRequestService {
     @Transactional
     public PrivacyRequest recordResponse(String userId, UUID id, String response, boolean websiteClaimedDeletion) {
         PrivacyRequest r = requireOwned(userId, id);
+        SensitiveDataGuard.rejectSecretMaterial(response);
         r.setWebsiteResponse(trimToNull(response));
         r.setWebsiteClaimedDeletion(websiteClaimedDeletion);
         if (r.getStatus().equals(PrivacyRequestStatus.SUBMITTED.name())) {
@@ -204,6 +223,9 @@ public class PrivacyRequestService {
         PrivacyRequest r = requireOwned(userId, id);
         r.setUserVerified(userVerified);
         if (userVerified) {
+            if (!r.getStatus().equals(PrivacyRequestStatus.NEEDS_VERIFICATION.name())) {
+                transition(r, PrivacyRequestStatus.NEEDS_VERIFICATION, "Verification requested before marking completed");
+            }
             transition(r, PrivacyRequestStatus.COMPLETED, "User independently verified completion");
             r.setCompletedAt(Instant.now());
         } else if (r.getStatus().equals(PrivacyRequestStatus.COMPLETED.name())) {

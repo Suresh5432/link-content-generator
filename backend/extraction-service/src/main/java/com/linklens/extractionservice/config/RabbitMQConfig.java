@@ -34,6 +34,9 @@ public class RabbitMQConfig {
 
     public static final String DLQ_ROUTING_KEY="link-submitted.dlq";
 
+    public static final String USER_FOOTPRINT_DELETED_QUEUE="extraction.user-footprint-deleted";
+    public static final String USER_FOOTPRINT_DELETED_ROUTING_KEY="user.footprint.deleted.v1";
+
     @Bean
     public DirectExchange retryExchange(){
         return new DirectExchange(RETRY_EXCHANGE, true, false);
@@ -70,6 +73,18 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(deadLetterQueue())
                 .to(dlqExchange())
                 .with(DLQ_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue userFootprintDeletedQueue(){
+        return new Queue(USER_FOOTPRINT_DELETED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding userFootprintDeletedBinding(){
+        return BindingBuilder.bind(userFootprintDeletedQueue())
+                .to(linkExchange())
+                .with(USER_FOOTPRINT_DELETED_ROUTING_KEY);
     }
 
     @Bean

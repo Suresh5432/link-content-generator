@@ -20,6 +20,14 @@ spring:
             scope:
               - extraction.read
               - openid
+          user-service:
+            provider: keycloak
+            client-id: ${USER_SERVICE_CLIENT_ID:summarization-service}
+            client-secret: ${USER_SERVICE_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            scope:
+              - users.read
+              - openid
         provider:
           keycloak:
             token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/link-context/protocol/openid-connect/token}
@@ -99,6 +107,10 @@ management:
           endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 summarization:
   content-service:
+    base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
+  user-service:
+    base-url: ${USER_SERVICE_URL:http://localhost:8085}
+  extraction-service:
     base-url: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
   ai:
     provider: ${AI_PROVIDER:ollama}

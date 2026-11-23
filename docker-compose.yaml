@@ -350,6 +350,9 @@ services:
       EXTRACTION_SERVICE_URL: http://extraction-service:8082
       EXTRACTION_CLIENT_ID: ${EXTRACTION_CLIENT_ID:-extraction-service}
       EXTRACTION_CLIENT_SECRET: ${EXTRACTION_CLIENT_SECRET:?EXTRACTION_CLIENT_SECRET is required}
+      USER_SERVICE_URL: http://user-service:8085
+      USER_SERVICE_CLIENT_ID: ${USER_SERVICE_CLIENT_ID:-summarization-service}
+      USER_SERVICE_CLIENT_SECRET: ${USER_SERVICE_CLIENT_SECRET:-}
       KEYCLOAK_TOKEN_URI: http://keycloak:8080/auth/realms/link-context/protocol/openid-connect/token
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
@@ -390,7 +393,7 @@ services:
       USER_DB_URL: jdbc:postgresql://postgres:5432/user_db
       USER_DB_USERNAME: user_user
       USER_DB_PASSWORD: ${USER_DB_PASSWORD}
-      INTERNAL_USER_LOOKUP_CLIENT_IDS: ${INTERNAL_USER_LOOKUP_CLIENT_IDS:-notification-service,link-service}
+      INTERNAL_USER_LOOKUP_CLIENT_IDS: ${INTERNAL_USER_LOOKUP_CLIENT_IDS:-notification-service,link-service,summarization-service}
       KEYCLOAK_EXPECTED_AUDIENCE: ${USER_SERVICE_EXPECTED_AUDIENCE:-user-service}
       SECURITY_JWT_EXPECTED_AUDIENCE: ${USER_SERVICE_EXPECTED_AUDIENCE:-user-service}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces

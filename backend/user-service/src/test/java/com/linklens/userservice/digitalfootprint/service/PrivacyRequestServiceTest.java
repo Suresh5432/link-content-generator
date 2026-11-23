@@ -173,6 +173,43 @@ class PrivacyRequestServiceTest {
     }
 
     @Test
+    void updateStatusCannotBypassSubmissionOrVerification() {
+        PrivacyRequest r = existing("AWAITING_USER_APPROVAL");
+        r.setApprovedAt(Instant.now());
+        when(repository.findByIdAndUserId(r.getId(), USER)).thenReturn(Optional.of(r));
+
+        assertThrows(IllegalStateTransitionException.class,
+                () -> service.updateStatus(USER, r.getId(), "SUBMITTED", "pretend submit"));
+        assertThrows(IllegalStateTransitionException.class,
+                () -> service.updateStatus(USER, r.getId(), "COMPLETED", "pretend complete"));
+        assertNull(r.getSubmittedAt());
+        assertFalse(r.isUserVerified());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void rawSecretsAreRejectedInResponsesAndNotes() {
+        PrivacyRequest r = existing("SUBMITTED");
+        when(repository.findByIdAndUserId(r.getId(), USER)).thenReturn(Optional.of(r));
+
+        assertThrows(InvalidRequestException.class,
+                () -> service.recordResponse(USER, r.getId(), "password: hunter2", false));
+        assertThrows(InvalidRequestException.class,
+                () -> service.updateStatus(USER, r.getId(), "IN_PROGRESS", "card number: 4111111111111111"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void submissionDetailsCannotBePresetDuringEdit() {
+        PrivacyRequest r = existing("DRAFT");
+        when(repository.findByIdAndUserId(r.getId(), USER)).thenReturn(Optional.of(r));
+
+        assertThrows(InvalidRequestException.class, () -> service.update(USER, r.getId(),
+                new com.linklens.userservice.digitalfootprint.dto.UpdatePrivacyRequestRequest(
+                        null, null, null, null, null, null, null, "EMAIL", "receipt")));
+    }
+
+    @Test
     void dueRemindersOnlyIncludePendingRequestsPastReminderTime() {
         PrivacyRequest due = existing("SUBMITTED");
         due.setReminderAt(Instant.now().minusSeconds(60));

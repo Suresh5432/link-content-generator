@@ -46,6 +46,17 @@ class RateLimitServiceTest {
     }
 
     @Test
+    void aiBucketUsesItsOwnKeyAndLowerLimit() {
+        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class))).thenReturn(11L);
+
+        assertFalse(rateLimitService.isAllowed("user-123", "ai", 10));
+
+        org.mockito.ArgumentCaptor<List<String>> keys = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(redisTemplate).execute(any(RedisScript.class), keys.capture(), any(Object[].class));
+        assertTrue(keys.getValue().get(0).contains(":ai:user-123"));
+    }
+
+    @Test
     void shouldAllowRequestWhenCountIsExactlyLimit() {
 
         when(redisTemplate.execute(

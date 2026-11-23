@@ -17,6 +17,9 @@ vi.mock('./api', () => ({
     verifyPrivacyRequest: vi.fn(), privacyRequestEvidence: vi.fn(), privacyRequestHistory: vi.fn(),
     privacyRequestReminders: vi.fn(), exportDigitalFootprint: vi.fn(), deleteDigitalFootprintAccountData: vi.fn(),
     websiteAccounts: vi.fn(), createWebsiteAccount: vi.fn(), deleteWebsiteAccount: vi.fn(),
+    searchDigitalFootprintWebsites: vi.fn(), requestPrivacyReview: vi.fn(), addPrivacyRequestEvidence: vi.fn(),
+    updatePrivacyRequestStatus: vi.fn(), updateDataRecord: vi.fn(), registerBrowserIntegration: vi.fn(),
+    deleteBrowserIntegration: vi.fn(),
   },
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
 }))
@@ -36,6 +39,9 @@ beforeEach(() => {
   vi.mocked(api.privacyPreferences).mockResolvedValue(prefs)
   vi.mocked(api.browserIntegrations).mockResolvedValue([])
   vi.mocked(api.websiteAnalyses).mockResolvedValue(page([]))
+  vi.mocked(api.privacyRequestReminders).mockResolvedValue([])
+  vi.mocked(api.websiteAccounts).mockResolvedValue([])
+  vi.mocked(api.searchDigitalFootprintWebsites).mockResolvedValue([website])
   vi.mocked(api.updatePrivacyPreferences).mockResolvedValue({ ...prefs, analyticsCookies: true })
 })
 
@@ -52,7 +58,7 @@ describe('My Digital Footprint', () => {
 
   it('lists tracked websites with data and tracker indicators', async () => {
     render(<DigitalFootprintPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'My websites' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'My websites' }))
     expect(await screen.findByRole('heading', { name: 'Example Bank' })).toBeInTheDocument()
     expect(screen.getByText(/Data: email, address/)).toBeInTheDocument()
     expect(screen.getByText(/Trackers: _ga/)).toBeInTheDocument()
@@ -61,7 +67,7 @@ describe('My Digital Footprint', () => {
   it('answers a privacy question using the assistant endpoint', async () => {
     vi.mocked(api.privacyAssistant).mockResolvedValue({ answer: 'Example Bank has your email address (confirmed by you).' })
     render(<DigitalFootprintPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Privacy assistant' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Privacy assistant' }))
     const input = await screen.findByPlaceholderText('Which websites have my email address?')
     fireEvent.change(input, { target: { value: 'Which websites have my email address?' } })
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
@@ -73,7 +79,7 @@ describe('My Digital Footprint', () => {
     vi.mocked(api.privacyRequestDraft).mockResolvedValue({ message: 'Subject: Request for Deletion\n\nHello Privacy Team,' })
     vi.mocked(api.createPrivacyRequest).mockResolvedValue({ id: 'r1' } as PrivacyRequest)
     render(<DigitalFootprintPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove my data' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Remove my data' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Draft with AI' }))
     await waitFor(() => expect(api.privacyRequestDraft).not.toHaveBeenCalled())
     fireEvent.change(screen.getByLabelText('Website'), { target: { value: 'w1' } })
@@ -84,8 +90,29 @@ describe('My Digital Footprint', () => {
 
   it('updates a privacy preference through the API', async () => {
     render(<DigitalFootprintPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Preferences' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Preferences' }))
     fireEvent.click(await screen.findByRole('switch', { name: 'Analytics cookies' }))
     await waitFor(() => expect(api.updatePrivacyPreferences).toHaveBeenCalledWith({ analyticsCookies: true }))
+  })
+
+  it('shows follow-up reminders and lets the user open them', async () => {
+    vi.mocked(api.privacyRequestReminders).mockResolvedValue([{ id: 'r9', trackedWebsiteId: 'w1', requestType: 'DELETION', status: 'SUBMITTED', createdAt: new Date().toISOString() } as PrivacyRequest])
+    render(<DigitalFootprintPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Remove my data' }))
+    expect(await screen.findByText('Follow-ups due')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+    await waitFor(() => expect(api.privacyRequestEvidence).toHaveBeenCalledWith('r9'))
+  })
+
+  it('lists manually recorded website accounts', async () => {
+    vi.mocked(api.websiteAccounts).mockResolvedValue([{
+      id: 'a1', trackedWebsiteId: 'w1', accountIdentifier: 'me@example.com', accountCreationDate: null,
+      accountCategory: null, sharedInformation: 'email', accountStatus: 'active', discoverySource: 'MANUAL',
+      confirmed: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }])
+    render(<DigitalFootprintPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'My websites' }))
+    expect(await screen.findByText('me@example.com', { exact: false })).toBeTruthy()
+    expect(screen.getByText(/confirmed by you/)).toBeTruthy()
   })
 })

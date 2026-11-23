@@ -21,6 +21,9 @@ Each service owns its database. Do not connect one service directly to another s
 
 ## My Digital Footprint
 
+See `docs/DIGITAL-FOOTPRINT.md`. Current safety limits: connected-email live provider scanning is disabled by default and not configured; evidence file uploads and automated submission are intentionally unsupported. Browser extension sync requires explicit API origin authorization and never uploads cookie/storage values.
+
+
 The workspace now includes a privacy dashboard where a signed-in user can track websites and category-level personal-data records, sync cookie/tracker metadata through an optional browser extension, discover public privacy-request channels, generate and approve deletion/access requests, track responses and reminders, ask a grounded AI assistant about their own records, and export or delete their footprint data.
 
 Safety rules are enforced in code and tests: no passwords, raw cookie values, session tokens, full card numbers or identity numbers are stored; AI receives category-level context only; the user must approve the exact request message before submission; a website's deletion claim is recorded as a claim, not proof; and deleting cookie metadata never claims to delete server-side data.

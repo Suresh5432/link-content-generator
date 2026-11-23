@@ -37,6 +37,8 @@ public class SecurityConfig {
                                 .hasAnyAuthority("SCOPE_extraction.read")
                                 .requestMatchers("/internal/v1/website-analyses/**")
                                 .hasAnyAuthority("SCOPE_extraction.read")
+                                .requestMatchers("/internal/v1/users/*/website-analysis-context")
+                                .hasAnyAuthority("SCOPE_extraction.read")
                                 .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2->

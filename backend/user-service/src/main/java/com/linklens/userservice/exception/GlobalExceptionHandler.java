@@ -30,6 +30,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "Conflict", e.getMessage());
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException e) {
+        return error(HttpStatus.BAD_REQUEST, "Bad Request", e.getMessage());
+    }
+
     private ResponseEntity<?> error(HttpStatus status, String reason, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", Instant.now(),

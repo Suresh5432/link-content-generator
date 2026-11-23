@@ -45,6 +45,7 @@ public class DigitalFootprintService {
     private final PersonalDataRecordRepository dataRecordRepository;
     private final PrivacyRequestRepository privacyRequestRepository;
     private final CookieInventoryRepository cookieRepository;
+    private final PrivacyDiscoveryService privacyDiscoveryService;
 
     @Transactional
     public TrackedWebsite create(String userId, CreateTrackedWebsiteRequest request) {
@@ -63,7 +64,9 @@ public class DigitalFootprintService {
                 .fromAnalysisId(Ids.parseNullableUuid(request.fromAnalysisId(), "fromAnalysisId"))
                 .firstRecordedAt(Instant.now())
                 .build();
-        return repository.save(w);
+        TrackedWebsite saved = repository.save(w);
+        privacyDiscoveryService.applyToWebsite(userId, saved.getDomain());
+        return saved;
     }
 
     @Transactional
@@ -78,7 +81,9 @@ public class DigitalFootprintService {
             if (request.dataCategories() != null) w.setDataCategories(trimToNull(request.dataCategories()));
             if (request.trackingTechnologies() != null) w.setTrackingTechnologies(trimToNull(request.trackingTechnologies()));
             if (request.category() != null) w.setCategory(trimToNull(request.category()));
-            return repository.save(w);
+            TrackedWebsite saved = repository.save(w);
+            privacyDiscoveryService.applyToWebsite(userId, saved.getDomain());
+            return saved;
         }
         TrackedWebsite w = TrackedWebsite.builder()
                 .userId(userId)
@@ -93,7 +98,9 @@ public class DigitalFootprintService {
                 .lastInspectionAt(Instant.now())
                 .firstRecordedAt(Instant.now())
                 .build();
-        return repository.save(w);
+        TrackedWebsite saved = repository.save(w);
+        privacyDiscoveryService.applyToWebsite(userId, saved.getDomain());
+        return saved;
     }
 
     @Transactional

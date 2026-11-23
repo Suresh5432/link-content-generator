@@ -13,4 +13,6 @@ public interface ExtractionContentRepository extends JpaRepository<ExtractionCon
     Optional<ExtractionContent> findByLinkId(UUID linkId);
 
     boolean existsByLinkId(UUID linkId);
+
+    long deleteByUserId(String userId);
 }

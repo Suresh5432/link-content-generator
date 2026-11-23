@@ -2,6 +2,7 @@ package com.linklens.summarizationservice.privacyassistant;
 
 import com.linklens.summarizationservice.service.ai.AiProvider;
 import com.linklens.summarizationservice.service.ai.AiRequest;
+import com.linklens.summarizationservice.service.ai.ResponseFormat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,9 +18,11 @@ public class PrivacyRequestDraftService {
         String categories = dataCategories == null || dataCategories.isBlank()
                 ? "not specified (do not invent any)"
                 : trimTo(dataCategories, 1000);
-        String answer = aiProvider.generateSummary(new AiRequest("Privacy request draft", buildPrompt(type, website, categories), "en")).summary();
-        if (answer == null || answer.isBlank()) throw new IllegalStateException("The AI provider returned an empty draft");
-        return answer.trim();
+        PrivacyTextGuard.rejectSecrets(type, "request type");
+        PrivacyTextGuard.rejectSecrets(website, "website name");
+        PrivacyTextGuard.rejectSecrets(categories, "data categories");
+        return PrivacyTextGuard.cleanOutput(aiProvider.generateText(
+                new AiRequest("Privacy request draft", buildPrompt(type, website, categories), "en", ResponseFormat.PLAIN_TEXT)));
     }
 
     private String buildPrompt(String requestType, String websiteName, String dataCategories) {

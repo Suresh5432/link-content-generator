@@ -16,6 +16,16 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/link-context}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: auto
   datasource:
     url: ${USER_DB_URL:jdbc:postgresql://localhost:5432/user_db}
     username: ${USER_DB_USERNAME:user_user}
@@ -62,6 +72,18 @@ management:
           server:
             requests: true
 
+
+digital-footprint:
+  events:
+    exchange: ${PRIVACY_EVENTS_EXCHANGE:link.events}
+  outbox:
+    fixed-delay-ms: ${PRIVACY_OUTBOX_FIXED_DELAY_MS:1000}
+    initial-delay-ms: ${PRIVACY_OUTBOX_INITIAL_DELAY_MS:5000}
+    confirm-timeout-seconds: ${PRIVACY_OUTBOX_CONFIRM_TIMEOUT_SECONDS:5}
+    batch-size: ${PRIVACY_OUTBOX_BATCH_SIZE:20}
+  reminders:
+    fixed-delay-ms: ${PRIVACY_REMINDERS_FIXED_DELAY_MS:3600000}
+    initial-delay-ms: ${PRIVACY_REMINDERS_INITIAL_DELAY_MS:60000}
 
 logging:
   structured:

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from './api'
 import type {
   BrowserIntegration, CookieRecord, PersonalDataRecord, PrivacyMetrics, PrivacyPreference,
   PrivacyRequest, PrivacyRequestEvidence, PrivacyRequestHistory, PrivacyRequestStatus, PrivacyRequestType,
-  TrackedWebsite, WebsiteAnalysis,
+  TrackedWebsite, UserWebsiteAccount, WebsiteAnalysis,
 } from './types'
 import { privacyRequestStatusLabels, privacyRequestTypeLabels } from './types'
 
@@ -23,6 +23,8 @@ export function DigitalFootprintPage() {
   const [records, setRecords] = useState<PersonalDataRecord[]>([])
   const [cookies, setCookies] = useState<CookieRecord[]>([])
   const [requests, setRequests] = useState<PrivacyRequest[]>([])
+  const [reminders, setReminders] = useState<PrivacyRequest[]>([])
+  const [accounts, setAccounts] = useState<UserWebsiteAccount[]>([])
   const [preferences, setPreferences] = useState<PrivacyPreference | null>(null)
   const [integrations, setIntegrations] = useState<BrowserIntegration[]>([])
   const [analyses, setAnalyses] = useState<WebsiteAnalysis[]>([])
@@ -33,24 +35,15 @@ export function DigitalFootprintPage() {
   const load = useCallback(async () => {
     setBusy(true); setError('')
     try {
-      const [sitePage, metricData, recordData, cookieData, requestData, prefData, integrationData, analysisPage] = await Promise.all([
-        api.digitalFootprintWebsites(), api.digitalFootprintMetrics(), api.allDataRecords(), api.cookies(), api.privacyRequests(), api.privacyPreferences(), api.browserIntegrations(), api.websiteAnalyses(0, 50),
+      const [sitePage, metricData, recordData, cookieData, requestData, reminderData, accountData, prefData, integrationData, analysisPage] = await Promise.all([
+        api.digitalFootprintWebsites(), api.digitalFootprintMetrics(), api.allDataRecords(), api.cookies(), api.privacyRequests(), api.privacyRequestReminders(), api.websiteAccounts(), api.privacyPreferences(), api.browserIntegrations(), api.websiteAnalyses(0, 50),
       ])
-      setWebsites(sitePage.content); setMetrics(metricData); setRecords(recordData); setCookies(cookieData); setRequests(requestData); setPreferences(prefData); setIntegrations(integrationData); setAnalyses(analysisPage.content)
+      setWebsites(sitePage.content); setMetrics(metricData); setRecords(recordData); setCookies(cookieData); setRequests(requestData); setReminders(reminderData); setAccounts(accountData); setPreferences(prefData); setIntegrations(integrationData); setAnalyses(analysisPage.content)
     } catch (e) { setError(message(e)) } finally { setBusy(false) }
   }, [])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 4000); return () => window.clearTimeout(timer) }, [toast])
-
-  const websiteById = useMemo(() => new Map(websites.map(w => [w.id, w])), [websites])
-
-  const assistantContext = useMemo(() => JSON.stringify({
-    websites: websites.map(w => ({ name: w.name, domain: w.domain, category: w.category, riskLevel: w.riskLevel, accountStatus: w.accountStatus, dataCategories: w.dataCategories, trackingTechnologies: w.trackingTechnologies })),
-    personalData: records.map(r => ({ website: websiteById.get(r.trackedWebsiteId)?.name ?? r.trackedWebsiteId, category: r.dataCategory, type: r.dataType, source: r.source, confirmedByUser: r.confirmedByUser, observedOnWebsite: r.observedOnWebsite, declaredInPolicy: r.declaredInPolicy, inferredByAi: r.inferredByAi })),
-    cookies: cookies.map(c => ({ name: c.cookieName, domain: c.domain, category: c.category, trackingRelated: c.trackingRelated })),
-    requests: requests.map(r => ({ website: r.trackedWebsiteId ? websiteById.get(r.trackedWebsiteId)?.name : null, type: r.requestType, status: r.status, userVerified: r.userVerified, websiteClaimedDeletion: r.websiteClaimedDeletion })),
-  }), [websites, records, cookies, requests, websiteById])
 
   return (
     <div className="df-page">
@@ -58,22 +51,24 @@ export function DigitalFootprintPage() {
         <div><span className="eyebrow">YOUR PRIVACY</span><h1>My Digital Footprint</h1><p>Understand where you shared information, what may be tracked, and how to ask for removal.</p></div>
         <button className="button button-outline button-small" onClick={() => void load()} disabled={busy}>Refresh</button>
       </div>
-      <nav className="df-tabs" aria-label="Digital footprint sections">
+      <nav className="df-tabs" role="tablist" aria-label="Digital footprint sections">
         {([['overview', 'Dashboard'], ['websites', 'My websites'], ['data', 'Personal data'], ['cookies', 'Cookies & trackers'], ['requests', 'Remove my data'], ['preferences', 'Preferences'], ['assistant', 'Privacy assistant'], ['account', 'Export & delete']] as [Tab, string][]).map(([key, label]) => (
-          <button key={key} className={tab === key ? 'df-tab df-tab-active' : 'df-tab'} onClick={() => setTab(key)}>{label}</button>
+          <button key={key} id={`df-tab-${key}`} role="tab" aria-selected={tab === key} aria-controls={`df-panel-${key}`} className={tab === key ? 'df-tab df-tab-active' : 'df-tab'} onClick={() => setTab(key)} onKeyDown={e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const keys = ['overview', 'websites', 'data', 'cookies', 'requests', 'preferences', 'assistant', 'account'] as Tab[]; const i = keys.indexOf(tab); const next = keys[(i + (e.key === 'ArrowRight' ? 1 : keys.length - 1)) % keys.length]; setTab(next); document.getElementById(`df-tab-${next}`)?.focus() } }}>{label}</button>
         ))}
       </nav>
       {error && <div role="alert" className="error-banner"><span>{error}</span><button onClick={() => void load()}>Try again</button></div>}
       {toast && <p role="status" className="df-toast">{toast}</p>}
 
-      {tab === 'overview' && <Overview metrics={metrics} websites={websites} requests={requests} busy={busy} onNavigate={setTab} />}
-      {tab === 'websites' && <Websites websites={websites} analyses={analyses} busy={busy} onChanged={() => { setToast('Websites updated.'); void load() }} onError={setError} />}
-      {tab === 'data' && <PersonalData websites={websites} records={records} onChanged={() => { setToast('Personal data inventory updated.'); void load() }} onError={setError} />}
-      {tab === 'cookies' && <Cookies websites={websites} cookies={cookies} integrations={integrations} onChanged={() => { setToast('Cookie metadata updated.'); void load() }} onError={setError} />}
-      {tab === 'requests' && <Requests websites={websites} requests={requests} onChanged={() => { setToast('Privacy request updated.'); void load() }} onError={setError} />}
-      {tab === 'preferences' && <Preferences preferences={preferences} onChanged={setPreferences} onError={setError} />}
-      {tab === 'assistant' && <Assistant context={assistantContext} onError={setError} />}
-      {tab === 'account' && <AccountData onChanged={() => { setToast('Privacy records deleted.'); void load() }} onError={setError} />}
+      <div role="tabpanel" id={`df-panel-${tab}`} aria-labelledby={`df-tab-${tab}`}>
+        {tab === 'overview' && <Overview metrics={metrics} websites={websites} requests={requests} busy={busy} onNavigate={setTab} />}
+        {tab === 'websites' && <Websites websites={websites} analyses={analyses} busy={busy} accounts={accounts} onChanged={() => { setToast('Websites updated.'); void load() }} onError={setError} />}
+        {tab === 'data' && <PersonalData websites={websites} records={records} busy={busy} onChanged={() => { setToast('Personal data inventory updated.'); void load() }} onError={setError} />}
+        {tab === 'cookies' && <Cookies websites={websites} cookies={cookies} integrations={integrations} busy={busy} onChanged={() => { setToast('Cookie metadata updated.'); void load() }} onError={setError} />}
+        {tab === 'requests' && <Requests websites={websites} requests={requests} reminders={reminders} busy={busy} onChanged={() => { setToast('Privacy request updated.'); void load() }} onError={setError} />}
+        {tab === 'preferences' && <Preferences preferences={preferences} onChanged={setPreferences} onError={setError} />}
+        {tab === 'assistant' && <Assistant onError={setError} />}
+        {tab === 'account' && <AccountData onChanged={() => { setToast('Privacy records deleted.'); void load() }} onError={setError} />}
+      </div>
     </div>
   )
 }
@@ -107,7 +102,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: '
   return <div className={`df-metric ${tone ? `df-metric-${tone}` : ''}`}><span>{label}</span><strong>{value.toLocaleString()}</strong></div>
 }
 
-function Websites({ websites, analyses, busy, onChanged, onError }: { websites: TrackedWebsite[]; analyses: WebsiteAnalysis[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
+function Websites({ websites, analyses, accounts, busy, onChanged, onError }: { websites: TrackedWebsite[]; analyses: WebsiteAnalysis[]; accounts: UserWebsiteAccount[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [risk, setRisk] = useState('')
@@ -115,16 +110,26 @@ function Websites({ websites, analyses, busy, onChanged, onError }: { websites: 
   const [sort, setSort] = useState('recent')
   const [form, setForm] = useState({ name: '', domain: '', url: '', category: '' })
   const [analysisId, setAnalysisId] = useState('')
+  const [accountForm, setAccountForm] = useState({ trackedWebsiteId: '', accountIdentifier: '', sharedInformation: '', accountStatus: '' })
   const [working, setWorking] = useState(false)
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const filtered = websites.filter(w => (!q || w.name.toLowerCase().includes(q) || w.domain.toLowerCase().includes(q))
-      && (!category || w.category?.toUpperCase() === category) && (!risk || w.riskLevel?.toUpperCase() === risk)
-      && (!deletion || w.deletionRequestStatus?.toUpperCase() === deletion))
-    if (sort === 'risk') return [...filtered].sort((a, b) => rank(b.riskLevel) - rank(a.riskLevel))
-    return [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [websites, search, category, risk, deletion, sort])
+  const [visible, setVisible] = useState<TrackedWebsite[]>(websites)
+  const [searching, setSearching] = useState(false)
+  useEffect(() => {
+    let active = true
+    setSearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const results = await api.searchDigitalFootprintWebsites({
+          query: search.trim() || undefined, category: category || undefined,
+          riskLevel: risk || undefined, deletionStatus: deletion || undefined, sort,
+        })
+        if (active) setVisible(results)
+      } catch (e) { if (active) onError(message(e)) }
+      finally { if (active) setSearching(false) }
+    }, 200)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [search, category, risk, deletion, sort, websites, onError])
 
   async function addManual() {
     if (!form.name.trim() || !form.domain.trim() || !form.url.trim()) { onError('Name, domain and URL are required.'); return }
@@ -147,6 +152,21 @@ function Websites({ websites, analyses, busy, onChanged, onError }: { websites: 
         category: analysis.category ?? undefined, riskLevel: analysis.riskLevel ?? undefined,
         dataCategories: cats.length ? cats.join(', ') : undefined, trackingTechnologies: trackers.length ? trackers.join(', ') : undefined,
       })
+      onChanged()
+    } catch (e) { onError(message(e)) } finally { setWorking(false) }
+  }
+
+  async function addAccount() {
+    if (!accountForm.trackedWebsiteId) { onError('Choose a website for this account.'); return }
+    setWorking(true)
+    try {
+      await api.createWebsiteAccount({
+        trackedWebsiteId: accountForm.trackedWebsiteId,
+        accountIdentifier: accountForm.accountIdentifier || undefined,
+        sharedInformation: accountForm.sharedInformation || undefined,
+        accountStatus: accountForm.accountStatus || undefined,
+      })
+      setAccountForm({ trackedWebsiteId: '', accountIdentifier: '', sharedInformation: '', accountStatus: '' })
       onChanged()
     } catch (e) { onError(message(e)) } finally { setWorking(false) }
   }
@@ -196,6 +216,18 @@ function Websites({ websites, analyses, busy, onChanged, onError }: { websites: 
       </div>
     </section>
 
+    <section className="panel df-panel">
+      <div className="panel-heading"><div><h2>Website accounts</h2><p>Record accounts you remember creating. Never enter a website password. Email-connected discovery is not enabled.</p></div></div>
+      <div className="df-form-grid">
+        <label className="form-label">Website<select value={accountForm.trackedWebsiteId} onChange={e => setAccountForm({ ...accountForm, trackedWebsiteId: e.target.value })}><option value="">Choose…</option>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
+        <label className="form-label">Email or username (optional)<input value={accountForm.accountIdentifier} onChange={e => setAccountForm({ ...accountForm, accountIdentifier: e.target.value })} placeholder="you@example.com" /></label>
+        <label className="form-label">Account status<input value={accountForm.accountStatus} onChange={e => setAccountForm({ ...accountForm, accountStatus: e.target.value })} placeholder="active / closed" /></label>
+        <label className="form-label">Information you remember sharing<input value={accountForm.sharedInformation} onChange={e => setAccountForm({ ...accountForm, sharedInformation: e.target.value })} placeholder="category-level notes, no secrets" /></label>
+      </div>
+      <button className="button button-outline button-small" onClick={() => void addAccount()} disabled={working}>Add account</button>
+      {accounts.length > 0 && <ul className="df-history">{accounts.map(a => <li key={a.id}><b>{websites.find(w => w.id === a.trackedWebsiteId)?.name ?? 'Website'}</b>{a.accountIdentifier ? ` · ${a.accountIdentifier}` : ''} · {a.confirmed ? 'confirmed by you' : 'possible discovery'}{a.sharedInformation ? ` — ${a.sharedInformation}` : ''} <button className="df-link" onClick={async () => { if (!confirm('Remove this account record?')) return; try { await api.deleteWebsiteAccount(a.id); onChanged() } catch (e) { onError(message(e)) } }}>Remove</button></li>)}</ul>}
+    </section>
+
     <div className="toolbar df-toolbar">
       <input className="search-input" aria-label="Search websites" placeholder="Search websites" value={search} onChange={e => setSearch(e.target.value)} />
       <select aria-label="Filter category" value={category} onChange={e => setCategory(e.target.value)}><option value="">All categories</option>{[...new Set(websites.map(w => w.category).filter(Boolean))].map(c => <option key={c!} value={c!}>{c}</option>)}</select>
@@ -204,7 +236,7 @@ function Websites({ websites, analyses, busy, onChanged, onError }: { websites: 
       <select aria-label="Sort websites" value={sort} onChange={e => setSort(e.target.value)}><option value="recent">Recently added</option><option value="risk">Risk level</option></select>
     </div>
 
-    {busy ? <p className="df-muted">Loading websites…</p> : visible.length === 0 ? <div className="empty-state empty-card"><h3>No websites yet</h3><p>Add a website or import a completed analysis to start your footprint.</p></div> : <div className="df-stack">
+    {busy || searching ? <p className="df-muted" role="status">Loading websites…</p> : visible.length === 0 ? <div className="empty-state empty-card"><h3>No websites yet</h3><p>Add a website or import a completed analysis to start your footprint.</p></div> : <div className="df-stack">
       {visible.map(w => <section key={w.id} className="panel df-site-card">
         <div className="df-site-head">
           <div className="df-site-identity">
@@ -233,7 +265,7 @@ function Websites({ websites, analyses, busy, onChanged, onError }: { websites: 
   </div>
 }
 
-function PersonalData({ websites, records, onChanged, onError }: { websites: TrackedWebsite[]; records: PersonalDataRecord[]; onChanged: () => void; onError: (m: string) => void }) {
+function PersonalData({ websites, records, busy, onChanged, onError }: { websites: TrackedWebsite[]; records: PersonalDataRecord[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
   const [websiteId, setWebsiteId] = useState('')
   const [form, setForm] = useState({ dataCategory: 'BASIC_CONTACT', dataType: '', description: '', source: 'USER_CONFIRMED', dateShared: '', evidenceSource: '' })
   const filtered = records.filter(r => !websiteId || r.trackedWebsiteId === websiteId)
@@ -263,9 +295,9 @@ function PersonalData({ websites, records, onChanged, onError }: { websites: Tra
     </section>
 
     <div className="toolbar df-toolbar"><select aria-label="Filter by website" value={websiteId} onChange={e => setWebsiteId(e.target.value)}><option value="">All websites</option>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
-    {filtered.length === 0 ? <div className="empty-state empty-card"><h3>No personal data recorded</h3><p>Add categories above. AI inferences are labelled and never treated as confirmed facts.</p></div> : <div className="df-stack">{filtered.map(r => <article key={r.id} className="panel df-record">
-      <div className="df-site-head"><div><h3>{r.dataType} <span className="df-muted">· {r.dataCategory}</span></h3><p className="df-muted">{byId.get(r.trackedWebsiteId)?.name ?? 'Website'} · {sourceLabel(r.source)}</p></div><button className="button button-delete button-small" onClick={async () => { try { await api.deleteDataRecord(r.id); onChanged() } catch (e) { onError(message(e)) } }}>Delete</button></div>
-      {r.description && <p>{r.description}</p>}
+    {busy ? <p className="df-muted" role="status">Loading personal data…</p> : filtered.length === 0 ? <div className="empty-state empty-card"><h3>No personal data recorded</h3><p>Add categories above. AI inferences are labelled and never treated as confirmed facts.</p></div> : <div className="df-stack">{filtered.map(r => <article key={r.id} className="panel df-record">
+      <div className="df-site-head"><div><h3>{r.dataType} <span className="df-muted">· {r.dataCategory}</span></h3><p className="df-muted">{byId.get(r.trackedWebsiteId)?.name ?? 'Website'} · {sourceLabel(r.source)}</p></div><button className="button button-delete button-small" onClick={async () => { if (!confirm(`Delete the ${r.dataType} record?`)) return; try { await api.deleteDataRecord(r.id); onChanged() } catch (e) { onError(message(e)) } }}>Delete</button></div>
+      <label className="form-label">Notes (no secrets)<textarea key={r.id} rows={2} defaultValue={r.description ?? ''} onBlur={async e => { if (e.target.value === (r.description ?? '')) return; try { await api.updateDataRecord(r.id, { description: e.target.value }); onChanged() } catch (err) { onError(message(err)) } }} /></label>
       <div className="df-badges">
         {r.confirmedByUser && <span className="df-badge df-badge-good">Confirmed by you</span>}
         {r.observedOnWebsite && <span className="df-badge">Observed on website</span>}
@@ -278,12 +310,18 @@ function PersonalData({ websites, records, onChanged, onError }: { websites: Tra
   </div>
 }
 
-function Cookies({ websites, cookies, integrations, onChanged, onError }: { websites: TrackedWebsite[]; cookies: CookieRecord[]; integrations: BrowserIntegration[]; onChanged: () => void; onError: (m: string) => void }) {
+function Cookies({ websites, cookies, integrations, busy, onChanged, onError }: { websites: TrackedWebsite[]; cookies: CookieRecord[]; integrations: BrowserIntegration[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
   const [domain, setDomain] = useState('')
   const [onlyTracking, setOnlyTracking] = useState(false)
+  const [installationId, setInstallationId] = useState('')
   const visible = cookies.filter(c => (!domain || c.domain === domain) && (!onlyTracking || c.trackingRelated))
   const domains = [...new Set(cookies.map(c => c.domain))].sort()
   const siteFor = (cookieDomain: string) => websites.find(w => cookieDomain === w.domain || cookieDomain.endsWith(`.${w.domain}`) || w.domain.endsWith(`.${cookieDomain}`))
+
+  async function registerIntegration() {
+    if (!installationId.trim()) { onError('Enter the extension installation ID.'); return }
+    try { await api.registerBrowserIntegration({ installationId: installationId.trim(), browserName: 'Chromium' }); setInstallationId(''); onChanged() } catch (e) { onError(message(e)) }
+  }
 
   async function remove(cookie: CookieRecord) {
     if (!confirm(`Remove the stored metadata for “${cookie.cookieName}”? This does not delete the cookie from your browser. Use the extension or your browser settings to delete it.`)) return
@@ -293,16 +331,18 @@ function Cookies({ websites, cookies, integrations, onChanged, onError }: { webs
   return <div className="df-stack">
     <section className="panel df-panel">
       <div className="panel-heading"><div><h2>Browser extension</h2><p>Cookies are browser- and device-specific. This page shows metadata only — never cookie values.</p></div></div>
-      <p className="df-muted">Install the Link Context browser extension to sync cookie <b>metadata</b> (name, domain, category, flags) for domains you allow. The extension never uploads cookie values, session identifiers or tokens.</p>
-      <div className="df-badges">{integrations.length === 0 ? <span className="df-badge df-badge-muted">No browser integration registered yet</span> : integrations.map(i => <span key={i.id} className="df-badge">{i.browserName || 'Browser'} · {i.deviceLabel || i.installationId} · last sync {i.lastSyncAt ? formatDate(i.lastSyncAt) : 'never'}</span>)}</div>
-      <details className="df-details"><summary>Manual mode: delete cookies without the extension</summary><ol><li>Open your browser settings → Privacy and security → Cookies and site data.</li><li>Search for the website's domain and remove its cookies.</li><li>This logs you out of that site and resets its preferences. It does not delete your account on the server.</li></ol></details>
+      <p className="df-muted">Install the Link Context browser extension to sync cookie <b>metadata</b> (name, domain, category, flags) for domains you allow. The extension never uploads cookie values, session identifiers, tokens, or browser storage values.</p>
+        <p className="df-muted">Production-safe OAuth/PKCE token exchange for the extension is <b>not implemented</b> in this repository. The current extension supports user-pasted short-lived tokens only; configure a dedicated Keycloak public client, redirect/handshake flow, and origin allowlist before using it beyond local development.</p>
+      <div className="df-badges">{integrations.length === 0 ? <span className="df-badge df-badge-muted">No browser integration registered yet</span> : integrations.map(i => <span key={i.id} className="df-badge">{i.browserName || 'Browser'} · {i.deviceLabel || i.installationId} · last sync {i.lastSyncAt ? formatDate(i.lastSyncAt) : 'never'} <button className="df-link" onClick={async () => { if (!confirm('Disconnect this browser integration? Synced metadata will remain until deleted separately.')) return; try { await api.deleteBrowserIntegration(i.id); onChanged() } catch (e) { onError(message(e)) } }}>Disconnect</button></span>)}</div>
+      <div className="df-inline"><label className="form-label df-grow">Extension installation ID<input value={installationId} onChange={e => setInstallationId(e.target.value)} placeholder="Paste the ID shown by the extension" /></label><button className="button button-outline button-small" onClick={() => void registerIntegration()}>Register integration</button></div>
+      <details className="df-details"><summary>Manual mode and supported browser cleanup</summary><ol><li>Use browser settings or the extension to remove cookies for the selected site. This affects only this browser profile.</li><li>The extension can inspect/clear localStorage, sessionStorage, IndexedDB, service workers, and Cache Storage where browser APIs support it; unsupported items are reported.</li><li>Browser cleanup never deletes server-side account data. Use the privacy request workflow for server-side deletion requests.</li></ol></details>
     </section>
 
     <div className="toolbar df-toolbar">
       <select aria-label="Filter cookie domain" value={domain} onChange={e => setDomain(e.target.value)}><option value="">All domains</option>{domains.map(d => <option key={d} value={d}>{d}</option>)}</select>
       <label className="df-check"><input type="checkbox" checked={onlyTracking} onChange={e => setOnlyTracking(e.target.checked)} /> Tracking only</label>
     </div>
-    {visible.length === 0 ? <div className="empty-state empty-card"><h3>No cookie metadata</h3><p>Register the browser extension and sync permitted domains to see cookie categories here.</p></div> : <div className="df-table-wrap"><table className="df-table"><thead><tr><th>Cookie</th><th>Domain</th><th>Party</th><th>Category</th><th>Flags</th><th>Expires</th><th></th></tr></thead><tbody>{visible.map(c => <tr key={c.id}>
+    {busy ? <p className="df-muted" role="status">Loading cookie metadata…</p> : visible.length === 0 ? <div className="empty-state empty-card"><h3>No cookie metadata</h3><p>Register the browser extension and sync permitted domains to see cookie categories here.</p></div> : <div className="df-table-wrap"><table className="df-table"><caption className="df-muted">Cookie metadata only — values are never stored.</caption><thead><tr><th scope="col">Cookie</th><th scope="col">Domain</th><th scope="col">Party</th><th scope="col">Category</th><th scope="col">Flags</th><th scope="col">Expires</th><th scope="col"></th></tr></thead><tbody>{visible.map(c => <tr key={c.id}>
       <td>{c.cookieName}{c.trackingRelated && <span className="df-badge df-badge-warn">tracking</span>}</td>
       <td>{c.domain}{siteFor(c.domain) && <span className="df-muted"> · {siteFor(c.domain)!.name}</span>}</td>
       <td>{c.firstParty ? 'First-party' : 'Third-party'}</td>
@@ -315,7 +355,7 @@ function Cookies({ websites, cookies, integrations, onChanged, onError }: { webs
   </div>
 }
 
-function Requests({ websites, requests, onChanged, onError }: { websites: TrackedWebsite[]; requests: PrivacyRequest[]; onChanged: () => void; onError: (m: string) => void }) {
+function Requests({ websites, requests, reminders, busy, onChanged, onError }: { websites: TrackedWebsite[]; requests: PrivacyRequest[]; reminders: PrivacyRequest[]; busy: boolean; onChanged: () => void; onError: (m: string) => void }) {
   const [form, setForm] = useState({ trackedWebsiteId: '', requestType: 'DELETION' as PrivacyRequestType, dataCategories: '', privacyContactEmail: '', privacyContactUrl: '', preferredContact: '', legalBasis: '' })
   const [selectedId, setSelectedId] = useState('')
   const [submissionMethod, setSubmissionMethod] = useState('MANUAL')
@@ -324,6 +364,8 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
   const [claimed, setClaimed] = useState(false)
   const [evidence, setEvidence] = useState<PrivacyRequestEvidence[]>([])
   const [history, setHistory] = useState<PrivacyRequestHistory[]>([])
+  const [evidenceForm, setEvidenceForm] = useState({ type: 'SUBMISSION', description: '', referenceUrl: '' })
+  const [statusNote, setStatusNote] = useState('')
   const [drafting, setDrafting] = useState(false)
   const selected = requests.find(r => r.id === selectedId) ?? null
   const siteName = (id: string | null) => id ? websites.find(w => w.id === id)?.name ?? 'Website' : 'No website'
@@ -348,6 +390,7 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
 
   async function loadDetail(id: string) {
     setSelectedId(id)
+    setResponse(''); setClaimed(false); setExternalReference(''); setStatusNote('')
     try { const [ev, hi] = await Promise.all([api.privacyRequestEvidence(id), api.privacyRequestHistory(id)]); setEvidence(ev); setHistory(hi) } catch (e) { onError(message(e)) }
   }
 
@@ -365,6 +408,7 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
         <label className="form-label">Privacy email<input value={form.privacyContactEmail} onChange={e => setForm({ ...form, privacyContactEmail: e.target.value })} placeholder="privacy@example.com" /></label>
         <label className="form-label">Privacy request URL<input value={form.privacyContactUrl} onChange={e => setForm({ ...form, privacyContactUrl: e.target.value })} placeholder="https://…" /></label>
         <label className="form-label">Your contact<input value={form.preferredContact} onChange={e => setForm({ ...form, preferredContact: e.target.value })} placeholder="email to reply to" /></label>
+        <label className="form-label">Legal basis / right (optional)<input value={form.legalBasis} onChange={e => setForm({ ...form, legalBasis: e.target.value })} placeholder="for example: right to erasure" /></label>
       </div>
       <div className="df-inline">
         <button className="button button-dark button-small" onClick={() => void create()}>Prepare draft</button>
@@ -373,9 +417,14 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
       <p className="df-muted">AI drafts are suggestions only. Review and edit the exact message before approval; nothing is submitted automatically.</p>
     </section>
 
+    {reminders.length > 0 && <section className="panel df-panel">
+      <div className="panel-heading"><div><h2>Follow-ups due</h2><p>{reminders.length} request(s) have had no recorded update for 14 days. Review the official channel rather than assuming completion.</p></div></div>
+      <ul className="df-history">{reminders.map(r => <li key={r.id}><b>{privacyRequestTypeLabels[r.requestType]}</b> · {siteName(r.trackedWebsiteId)} · {privacyRequestStatusLabels[r.status]} <button className="df-link" onClick={() => void loadDetail(r.id)}>Open</button></li>)}</ul>
+    </section>}
+
     <div className="df-request-layout">
       <div className="df-request-list">
-        {requests.length === 0 ? <p className="df-muted">No requests yet.</p> : requests.map(r => <button key={r.id} className={`df-request-item ${selectedId === r.id ? 'df-request-active' : ''}`} onClick={() => void loadDetail(r.id)}>
+        {busy ? <p className="df-muted" role="status">Loading requests…</p> : requests.length === 0 ? <p className="df-muted">No requests yet.</p> : requests.map(r => <button key={r.id} className={`df-request-item ${selectedId === r.id ? 'df-request-active' : ''}`} onClick={() => void loadDetail(r.id)}>
           <span><b>{privacyRequestTypeLabels[r.requestType]}</b><small>{siteName(r.trackedWebsiteId)} · {formatDate(r.createdAt)}</small></span>
           <span className={`df-status df-status-${r.status.toLowerCase()}`}>{privacyRequestStatusLabels[r.status]}</span>
         </button>)}
@@ -393,7 +442,7 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
             {selected.expectedResponseDate && <span className="df-badge df-badge-muted">Expected by {formatDate(selected.expectedResponseDate)}</span>}
           </div>
           <div className="df-row-actions df-actions-wrap">
-            {selected.status === 'DRAFT' && <button className="button button-outline button-small" onClick={() => void act(() => api.updatePrivacyRequest(selected.id, {}))}>Mark ready for review</button>}
+            {selected.status === 'DRAFT' && <button className="button button-outline button-small" onClick={() => void act(() => api.requestPrivacyReview(selected.id))}>Mark ready for review</button>}
             {['DRAFT', 'READY_FOR_REVIEW', 'AWAITING_USER_APPROVAL'].includes(selected.status) && <button className="button button-dark button-small" onClick={() => void act(() => api.approvePrivacyRequest(selected.id))}>Approve exact message</button>}
             {selected.status === 'AWAITING_USER_APPROVAL' && <div className="df-inline">
               <select aria-label="Submission method" value={submissionMethod} onChange={e => setSubmissionMethod(e.target.value)}><option value="MANUAL">Manual / official form</option><option value="EMAIL">Email</option><option value="API">Official API</option></select>
@@ -411,6 +460,20 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
               <button className="button button-outline button-small" onClick={() => void act(() => api.verifyPrivacyRequest(selected.id, true))}>I independently verified completion</button>
             </div>
           </div>
+          {(selected.status === 'SUBMITTED' || selected.status === 'ACKNOWLEDGED' || selected.status === 'IN_PROGRESS' || selected.status === 'NEEDS_VERIFICATION') && <div className="df-form-grid">
+            <label className="form-label">Update status<select value={selected.status} onChange={async e => { const next = e.target.value; if (next === selected.status) return; try { await api.updatePrivacyRequestStatus(selected.id, next, statusNote || undefined); setStatusNote(''); onChanged() } catch (err) { onError(message(err)) } }}>
+              {selected.status === 'SUBMITTED' && <option value="SUBMITTED">Submitted</option>}
+              {['ACKNOWLEDGED', 'IN_PROGRESS', 'NEEDS_VERIFICATION'].map(s => <option key={s} value={s}>{privacyRequestStatusLabels[s as PrivacyRequestStatus]}</option>)}
+              <option value="REJECTED">Rejected</option><option value="EXPIRED">Expired</option><option value="FAILED">Failed</option>
+            </select></label>
+            <label className="form-label">Note for the history<input value={statusNote} onChange={e => setStatusNote(e.target.value)} placeholder="What changed? No secrets." /></label>
+          </div>}
+          <div className="df-form-grid">
+            <label className="form-label">Evidence type<select value={evidenceForm.type} onChange={e => setEvidenceForm({ ...evidenceForm, type: e.target.value })}>{['SUBMISSION', 'RESPONSE', 'VERIFICATION', 'OTHER'].map(t => <option key={t} value={t}>{t.toLowerCase()}</option>)}</select></label>
+            <label className="form-label">Evidence description<input value={evidenceForm.description} onChange={e => setEvidenceForm({ ...evidenceForm, description: e.target.value })} placeholder="e.g. confirmation email received" /></label>
+            <label className="form-label">Evidence link (optional)<input value={evidenceForm.referenceUrl} onChange={e => setEvidenceForm({ ...evidenceForm, referenceUrl: e.target.value })} placeholder="https://…" /></label>
+          </div>
+          <button className="button button-outline button-small" onClick={async () => { try { await api.addPrivacyRequestEvidence(selected.id, { type: evidenceForm.type, description: evidenceForm.description || undefined, referenceUrl: evidenceForm.referenceUrl || undefined }); setEvidenceForm({ type: 'SUBMISSION', description: '', referenceUrl: '' }); const ev = await api.privacyRequestEvidence(selected.id); setEvidence(ev); onChanged() } catch (err) { onError(message(err)) } }}>Add evidence</button>
           <details className="df-details"><summary>Status history ({history.length})</summary><ul className="df-history">{history.map(h => <li key={h.id}><b>{privacyRequestStatusLabels[h.toStatus as PrivacyRequestStatus] ?? h.toStatus}</b> · {formatDate(h.createdAt)}{h.note ? ` — ${h.note}` : ''}</li>)}</ul></details>
           <details className="df-details"><summary>Evidence ({evidence.length})</summary><ul className="df-history">{evidence.map(e => <li key={e.id}><b>{e.type}</b> · {formatDate(e.createdAt)}{e.description ? ` — ${e.description}` : ''}{e.referenceUrl ? <> · <a href={e.referenceUrl} target="_blank" rel="noreferrer">link</a></> : null}</li>)}</ul></details>
         </section>}
@@ -440,21 +503,21 @@ function Preferences({ preferences, onChanged, onError }: { preferences: Privacy
   </div>
 }
 
-function Assistant({ context, onError }: { context: string; onError: (m: string) => void }) {
+function Assistant({ onError }: { onError: (m: string) => void }) {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [busy, setBusy] = useState(false)
   async function ask() {
     if (!question.trim()) { onError('Ask a question first.'); return }
     setBusy(true)
-    try { setAnswer((await api.privacyAssistant(question, context)).answer) } catch (e) { onError(message(e)) } finally { setBusy(false) }
+    try { setAnswer((await api.privacyAssistant(question)).answer) } catch (e) { onError(message(e)) } finally { setBusy(false) }
   }
   return <div className="df-stack">
     <section className="panel df-panel">
       <div className="panel-heading"><div><h2>Ask about your footprint</h2><p>Answers use only the records loaded in this dashboard. AI inferences are never treated as facts.</p></div></div>
-      <div className="df-prompt-row"><input className="search-input" placeholder="Which websites have my email address?" value={question} onChange={e => setQuestion(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void ask() }} /><button className="button button-dark button-small" onClick={() => void ask()} disabled={busy}>{busy ? 'Thinking…' : 'Ask'}</button></div>
+      <div className="df-prompt-row"><input className="search-input" aria-label="Privacy question" placeholder="Which websites have my email address?" value={question} onChange={e => setQuestion(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void ask() }} /><button className="button button-dark button-small" onClick={() => void ask()} disabled={busy}>{busy ? 'Thinking…' : 'Ask'}</button></div>
       <div className="df-badges"><button className="df-link" onClick={() => setQuestion('What should I remove first?')}>What should I remove first?</button><button className="df-link" onClick={() => setQuestion('Which websites have pending deletion requests?')}>Which requests are pending?</button><button className="df-link" onClick={() => setQuestion('Which websites use advertising trackers?')}>Which sites track me?</button></div>
-      {answer && <div className="df-answer"><h3>Answer</h3><p className="df-pre">{answer}</p></div>}
+      {answer && <div className="df-answer" aria-live="polite"><h3>Answer</h3><p className="df-pre">{answer}</p></div>}
     </section>
     <p className="df-disclaimer">The assistant never invents records and never exposes another user's data. Do not paste secrets into questions.</p>
   </div>
@@ -488,6 +551,5 @@ function AccountData({ onChanged, onError }: { onChanged: () => void; onError: (
   </div>
 }
 
-function rank(risk: string | null) { return risk === 'HIGH' ? 3 : risk === 'MEDIUM' ? 2 : risk === 'LOW' ? 1 : 0 }
 function sourceLabel(source: string) { return source.replaceAll('_', ' ').toLowerCase() }
 function formatDate(value: string | null) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.valueOf()) ? '' : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(d) }

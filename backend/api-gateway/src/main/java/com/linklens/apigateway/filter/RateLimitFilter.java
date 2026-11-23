@@ -47,8 +47,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
             userId = authentication.getName();
         }
 
+        boolean aiPath = request.getRequestURI().startsWith("/api/v1/privacy-assistant")
+                || request.getRequestURI().startsWith("/api/v1/privacy-request-drafts");
+
         try{
-            boolean allowed=rateLimitService.isAllowed(userId);
+            boolean allowed = aiPath
+                    ? rateLimitService.isAllowed(userId, "ai", 10)
+                    : rateLimitService.isAllowed(userId);
 
             if(!allowed){
 

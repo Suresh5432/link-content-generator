@@ -44,7 +44,8 @@ class UserServiceApplicationTests {
                 "tracked_websites", "personal_data_records", "privacy_requests",
                 "user_website_accounts", "cookie_inventory", "privacy_request_evidence",
                 "privacy_request_history", "website_privacy_contacts", "user_privacy_preferences",
-                "browser_integrations", "browser_sync_history"}) {
+                "browser_integrations", "browser_sync_history", "privacy_discovery_findings",
+                "privacy_event_outbox"}) {
             Integer count = jdbc.queryForObject(
                     "select count(*) from information_schema.tables where table_schema = 'public' and table_name = ?",
                     Integer.class, table);

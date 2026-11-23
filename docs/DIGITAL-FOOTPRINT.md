@@ -17,11 +17,13 @@ The product keeps these distinct at all times:
 
 | Concern | Owner |
 |---|---|
-| Footprint, personal-data, accounts, cookies, requests, preferences, browser installations, export/delete | `user-service` (`user_db`) |
+| Footprint, personal-data, accounts, cookies, requests, preferences, browser installations, discovery findings, export/delete | `user-service` (`user_db`) |
 | Public privacy-page discovery during Website Intelligence | `extraction-service` (`extraction_db`) |
 | Grounded privacy assistant and AI request drafts | `summarization-service` (`summary_db`) |
 | In-app/email notifications for request updates and reminders | `notification-service` (`notification_db`) |
 | Public routing, JWT validation, Redis rate limiting | `api-gateway` |
+
+The assistant reads the authenticated user's own records through `GET /internal/v1/users/{userId}/footprint-context` in user-service (service client with `users.read` and an `azp` allowlist entry). Callers cannot supply their own "records" context. Configure `USER_SERVICE_CLIENT_ID` / `USER_SERVICE_CLIENT_SECRET` and the matching Keycloak client-credentials client.
 
 Services never read another service's database. Cross-service communication uses versioned RabbitMQ events in `common/event-contracts`.
 
@@ -34,7 +36,7 @@ Migration `backend/user-service/src/main/resources/db/migration/V5__expand_digit
 - `privacy_requests` — full lifecycle timestamps, contacts, message, submission method/reference, expected response, website response, claim/verification flags, reminder time.
 - `user_website_accounts`, `cookie_inventory`, `privacy_request_evidence`, `privacy_request_history`, `website_privacy_contacts`, `user_privacy_preferences`, `browser_integrations`, `browser_sync_history`.
 
-`notification-service` migration `V2__privacy_notifications.sql` makes `link_id` nullable and adds `request_id` so a notification can belong to a privacy request.
+`user-service` `V6__privacy_discovery_findings.sql` stores public privacy-discovery findings as evidence, and `V7__privacy_event_outbox.sql` stores privacy events until RabbitMQ confirms them. `notification-service` migration `V2__privacy_notifications.sql` makes `link_id` nullable and adds `request_id` so a notification can belong to a privacy request.
 
 Hibernate runs with `ddl-auto=validate`; the Flyway migrations are exercised by Testcontainers-backed context tests in user, notification, extraction, summarization and link services.
 
@@ -83,7 +85,7 @@ Preferences are the user's own defaults. The UI states that changing a preferenc
 
 - `POST|GET /api/v1/privacy-requests`; `GET|PATCH /api/v1/privacy-requests/{id}`
 - `GET /api/v1/privacy-requests/reminders`, `GET /api/v1/privacy-requests/review`
-- `POST /api/v1/privacy-requests/{id}/approve|submit|cancel|response|verify|reminder-sent`
+- `POST /api/v1/privacy-requests/{id}/review|approve|submit|cancel|response|verify|reminder-sent`
 - `PATCH /api/v1/privacy-requests/{id}/status`
 - `POST|GET /api/v1/privacy-requests/{id}/evidence`
 - `GET /api/v1/privacy-requests/{id}/history`
@@ -110,30 +112,34 @@ The delete endpoint removes footprint-owned rows and returns counts plus a notic
 
 ### AI
 
-- `POST /api/v1/privacy-assistant` — grounded Q&A over the user's records.
+- `POST /api/v1/privacy-assistant` — Q&A grounded in the authenticated user's stored records; the request body contains only `question`, never caller-supplied "records".
 - `POST /api/v1/privacy-request-drafts` — opt-in AI draft of a request message.
 
-Both prompts forbid inventing records, require evidence labels, and forbid secrets. The draft endpoint receives only request type, website name and category-level data categories (never raw values). The UI labels AI drafts as suggestions; the user must edit and approve before submission. No request is ever auto-sent.
+Both prompts use a dedicated plain-text provider path (`ResponseFormat.PLAIN_TEXT`) instead of the JSON webpage-summary prompt. Prompts forbid inventing records, require evidence labels, and forbid secrets; `PrivacyTextGuard` additionally rejects raw secrets in inputs and generated output server-side. The draft endpoint receives only request type, website name and category-level data categories. The UI labels AI drafts as suggestions; the user must edit and approve before submission. No request is ever auto-sent. AI endpoints have a stricter 10/minute per-user gateway bucket.
 
 ## Browser discovery and Website Intelligence
 
-`WebsiteAnalysisInspectionRunner.detectPrivacyDiscovery` extracts findings from public pages: privacy policy, data deletion, account deletion, data access, cookie management, consent management, DPO contact, and privacy contact email (mailto or page text). Each finding stores its source URL as evidence. Heuristics live in `PrivacyDiscoveryClassifier` and are unit-tested. Findings are evidence for the user to verify, not a legal determination.
+`WebsiteAnalysisInspectionRunner.detectPrivacyDiscovery` extracts findings from public pages: privacy policy, data deletion, account deletion, data access, cookie management, consent management, DPO contact, and privacy contact email (mailto or page text). Findings are linked to source pages through `page_id` and store discovered URLs/evidence; heuristics live in `PrivacyDiscoveryClassifier` and are unit-tested.
+
+When an analysis completes, extraction publishes the versioned `privacy.discovery.discovered.v1` event with all privacy findings and their evidence to `extraction.events`. User-service consumes it into `privacy_discovery_findings` and, only for a tracked website owned by the same user, applies the findings to `website_privacy_contacts` and the website's policy URLs. Importing an analysis or adding a website applies any matching pending findings. Findings remain unverified hints for the user to review, not a legal determination.
 
 ## Browser extension
 
 `browser-extension/` is a Manifest V3 extension:
 
-- permissions: `cookies`, `activeTab`, `storage`; no `webRequest`, `history`, `tabs`, `downloads`, `management` or `proxy`;
+- permissions: `cookies`, `activeTab`, `storage`, `scripting`; no `webRequest`, `history`, `tabs`, `downloads`, `management` or `proxy`; storage inspection injects a probe only into the active tab on demand;
 - uploads only name, domain, host-only, secure, HttpOnly, SameSite, expiration and derived category/tracking flags;
 - never reads/uploads `cookie.value`, path, storeId, session identifiers or tokens;
-- cookie removal happens locally via `chrome.cookies.remove` only after an explicit user action;
+- cookie removal happens locally via `chrome.cookies.remove` only after an explicit user action; a separate domain-wide clear also requires confirmation;
 - the UI explains that removal can sign the user out/reset preferences;
+- on-demand storage inspection reports only names/counts for localStorage, sessionStorage, IndexedDB, service-worker registrations and cache storage — never values — and states that it is profile/device-scoped and does not delete server-side data;
+- sync caps uploads at 5,000 cookie metadata records client-side as well as server-side;
 - manual mode documents browser-specific deletion for users who do not install the extension.
 
 Run the extension permission/metadata tests with:
 
 ```sh
-node --test browser-extension/manifest.test.mjs
+npm test --prefix browser-extension
 ```
 
 ## Frontend
@@ -144,7 +150,8 @@ node --test browser-extension/manifest.test.mjs
 
 - `privacy.request.status.changed.v1` → notification-service in-app update (request-linked).
 - `privacy.request.reminder.v1` → notification-service reminder.
-- user-service publishes after commit via a transactional event relay and outbox-style resilient publisher; a scheduler emits a follow-up reminder for requests pending 14 days (configurable `digital-footprint.reminders.*`).
+- `privacy.discovery.discovered.v1` → user-service privacy-discovery evidence.
+- user-service publishes after commit via a transactional event relay into `privacy_event_outbox`; `PrivacyEventOutboxPublisher` confirms each RabbitMQ publish and retries with bounded backoff, marking a row `FAILED` after 10 attempts. A scheduler emits a follow-up reminder for requests pending 14 days (configurable `digital-footprint.reminders.*`).
 
 ## Security and privacy controls
 
@@ -163,18 +170,18 @@ Backend module test runs (all green):
 | Module | Tests |
 |---|---|
 | link-service | 17 |
-| extraction-service | 27 |
-| summarization-service | 33 |
-| user-service | 50 |
+| extraction-service | 28 (one RabbitMQ Testcontainers class is environment-flaky) |
+| summarization-service | 45 |
+| user-service | 62 |
 | notification-service | 9 |
-| api-gateway | 13 |
+| api-gateway | 15 |
 
 Frontend:
 
 ```sh
 cd frontend
 npx tsc -b --force
-npm test        # 22 tests
+npm test        # 24 tests
 npm run lint    # clean
 npm run build   # production build
 ```
@@ -182,10 +189,10 @@ npm run build   # production build
 Extension:
 
 ```sh
-node --test browser-extension/manifest.test.mjs   # 4 tests
+npm test --prefix browser-extension                # 10 tests (manifest + behavioural)
 ```
 
-Coverage includes website registration, data inventory, ownership, request generation, approval, submission, duplicates, transitions, reminders, cookie sync/removal messaging, cross-user denial, sensitive-data rejection, AI assistant/draft prompts, privacy notifications, migrations, and frontend flows.
+Coverage includes website registration, data inventory, ownership, request generation, approval, submission, duplicates, transitions, reminders, cookie sync/removal messaging, cross-user denial, sensitive-data rejection, AI assistant grounding and plain-text provider prompts, privacy-discovery ingestion, durable event outbox confirmation/retry, gateway AI rate limits, privacy notifications, migrations, frontend flows, and extension metadata/storage behaviour.
 
 ### Environment note
 

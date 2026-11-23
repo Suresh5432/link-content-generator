@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Link Context — Digital Footprint",
-  "version": "0.1.0",
-  "description": "Review cookie metadata for sites you allow, categorise trackers, and remove selected cookies locally. Cookie values are never uploaded.",
-  "permissions": ["cookies", "activeTab", "storage"],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js" },
+  "version": "0.2.0",
+  "description": "Review cookie/storage metadata for sites you allow, remove selected browser data locally, and sync cookie metadata only. Cookie values and storage values are never uploaded.",
+  "permissions": ["cookies", "activeTab", "storage", "scripting"],
+  "optional_host_permissions": ["http://localhost/*", "https://localhost/*", "http://127.0.0.1/*", "https://127.0.0.1/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_title": "Link Context footprint", "default_popup": "popup.html" },
   "minimum_chrome_version": "114"
 }

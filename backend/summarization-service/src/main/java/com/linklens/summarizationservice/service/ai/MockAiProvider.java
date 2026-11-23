@@ -37,6 +37,19 @@ public class MockAiProvider implements AiProvider {
     }
 
     @Override
+    public String generateText(AiRequest request) {
+        String content = request.content() == null ? "" : request.content().trim();
+        if (content.isBlank()) {
+            throw new IllegalStateException("The mock provider requires a non-empty request");
+        }
+        if (content.contains("Subject:")) {
+            return "Subject: Request regarding your personal data\n\n"
+                    + "This is a deterministic mock draft for local development. Review and edit it before use.";
+        }
+        return "This is a deterministic mock answer. The records above are the only source of truth.";
+    }
+
+    @Override
     public String getProviderName() {
         return "MOCK";
     }

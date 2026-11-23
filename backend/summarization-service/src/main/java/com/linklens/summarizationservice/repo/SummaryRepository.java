@@ -21,4 +21,6 @@ public interface SummaryRepository extends JpaRepository<Summary, UUID> {
     Optional<Summary> findByIdAndUserId(UUID id, String userId);
 
     Page<Summary> findAllByUserId(String userId, Pageable pageable);
+
+    long deleteByUserId(String userId);
 }

@@ -30,6 +30,15 @@ public class WebsitePrivacyContactService {
                 && !EMAIL.matcher(request.privacyContactEmail().trim()).matches()) {
             throw new InvalidRequestException("privacyContactEmail is not a valid email address");
         }
+        SensitiveDataGuard.rejectSecretMaterial(request.privacyPolicyUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.deletionPolicyUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.accessRequestUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.accountDeletionUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.cookieManagementUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.consentManagementUrl());
+        SensitiveDataGuard.rejectSecretMaterial(request.privacyContactEmail());
+        SensitiveDataGuard.rejectSecretMaterial(request.dpoContact());
+        SensitiveDataGuard.rejectSecretMaterial(request.sourceUrls());
         WebsitePrivacyContact contact = repository.findByUserIdAndTrackedWebsiteId(userId, websiteId)
                 .orElseGet(() -> WebsitePrivacyContact.builder().userId(userId).trackedWebsiteId(websiteId).build());
         if (request.privacyPolicyUrl() != null) contact.setPrivacyPolicyUrl(trimToNull(request.privacyPolicyUrl()));

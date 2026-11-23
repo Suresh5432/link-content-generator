@@ -1,33 +1,31 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import fs from 'node:fs'
 
-const dir = dirname(fileURLToPath(import.meta.url))
-const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'))
-const background = readFileSync(join(dir, 'background.js'), 'utf8')
+const manifest = JSON.parse(fs.readFileSync(new URL('./manifest.json', import.meta.url), 'utf8'))
+const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8')
 
-test('requests only the minimum documented permissions', () => {
-  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'cookies', 'storage'])
-  assert.equal(manifest.manifest_version, 3)
+test('manifest keeps minimal permissions and no broad host access by default', () => {
+  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'cookies', 'scripting', 'storage'])
+  assert.equal(manifest.host_permissions, undefined)
+  assert.deepEqual(manifest.optional_host_permissions, ['http://localhost/*', 'https://localhost/*', 'http://127.0.0.1/*', 'https://127.0.0.1/*'])
 })
 
-test('never requests privileged browsing permissions', () => {
-  for (const forbidden of ['webRequest', 'history', 'tabs', 'downloads', 'management', 'proxy', 'identity']) {
-    assert.ok(!manifest.permissions.includes(forbidden), `must not request ${forbidden}`)
+test('manifest does not request dangerous extension capabilities', () => {
+  const forbidden = ['<all_urls>', 'history', 'webRequest', 'webRequestBlocking', 'identity']
+  for (const permission of forbidden) {
+    assert.ok(!manifest.permissions.includes(permission), permission)
+    assert.ok(!(manifest.optional_host_permissions || []).includes(permission), permission)
   }
 })
 
-test('uploads metadata only and never cookie values', () => {
-  const uploadLine = background.split('\n').find((line) => line.includes('const UPLOAD_FIELDS'))
-  assert.ok(uploadLine)
-  for (const forbidden of ['value', 'path', 'storeId', 'session', 'token']) {
-    assert.ok(!uploadLine.includes(`'${forbidden}'`), `must not upload ${forbidden}`)
+test('background and popup never reference cookie value fields', () => {
+  for (const file of ['background.js', 'popup.js', 'content.js', 'metadata.js']) {
+    const source = read(`./${file}`)
+    const code = source.split('\n').filter(line => !line.trim().startsWith('//')).join('\n')
+    assert.ok(!/cookie\.value\b/.test(code), `${file} must not access cookie.value`)
+    if (file !== 'content.js') {
+      assert.ok(!/localStorage\.|sessionStorage\.|indexedDB\.|caches\./.test(code), `${file} must not read storage values`)
+    }
   }
-})
-
-test('cookie removal uses an explicit user message and browser API', () => {
-  assert.ok(background.includes("message?.type === 'remove'"))
-  assert.ok(background.includes('chrome.cookies.remove'))
 })

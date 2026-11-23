@@ -9,6 +9,16 @@ import java.util.Locale;
  * looks like a raw secret so it is never persisted, sent to AI, or logged.
  */
 final class SensitiveDataGuard {
+    static String cleanOptionalEmail(String email) {
+        if (email == null || email.isBlank()) return null;
+        String trimmed = email.trim();
+        rejectSecretMaterial(trimmed);
+        if (!trimmed.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new InvalidRequestException("accountEmail is not a valid email address");
+        }
+        return trimmed.toLowerCase(java.util.Locale.ROOT);
+    }
+
     private SensitiveDataGuard() {}
 
     static void rejectSecretMaterial(String text) {

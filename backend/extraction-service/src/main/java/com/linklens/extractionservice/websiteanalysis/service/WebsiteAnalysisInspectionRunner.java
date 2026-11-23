@@ -1,6 +1,7 @@
 package com.linklens.extractionservice.websiteanalysis.service;
 
 import com.linkcontext.contracts.EventRoutingKey;
+import com.linkcontext.contracts.events.PrivacyDiscoveryDiscoveredEvent;
 import com.linkcontext.contracts.events.WebsiteAnalysisCompletedEvent;
 import com.linklens.extractionservice.service.SafeWebFetcher;
 import com.linklens.extractionservice.service.ContentExtractor;
@@ -254,6 +255,7 @@ public class WebsiteAnalysisInspectionRunner {
             } catch (Exception e) {
                 log.warn("Failed to queue website analysis completed event", e);
             }
+            queuePrivacyDiscoveryEvent(analysis);
             analysisRepository.save(analysis);
         } catch (Exception e) {
             log.error("Website analysis failed {}", analysisId, e);
@@ -261,6 +263,46 @@ public class WebsiteAnalysisInspectionRunner {
             analysis.setErrorMessage(e.getMessage());
             analysis.setCompletedAt(Instant.now());
             analysisRepository.save(analysis);
+        }
+    }
+
+    private static final Set<String> PRIVACY_FINDING_TYPES = Set.of(
+            "PRIVACY_POLICY", "DATA_DELETION_PAGE", "ACCOUNT_DELETION_PAGE",
+            "DATA_ACCESS_PAGE", "COOKIE_MANAGEMENT_PAGE", "CONSENT_MANAGEMENT_PAGE",
+            "DPO_CONTACT", "PRIVACY_CONTACT_EMAIL");
+
+    private void queuePrivacyDiscoveryEvent(WebsiteAnalysis analysis) {
+        try {
+            List<PrivacyDiscoveryDiscoveredEvent.Finding> findings = findingRepository
+                    .findAllByAnalysisId(analysis.getId()).stream()
+                    .filter(f -> PRIVACY_FINDING_TYPES.contains(f.getType()))
+                    .map(f -> new PrivacyDiscoveryDiscoveredEvent.Finding(
+                            f.getType(), f.getName(), f.getEvidence(),
+                            f.getDescription(), f.getConfidence()))
+                    .toList();
+            if (findings.isEmpty()) return;
+
+            String websiteUrl = analysis.getNormalizedUrl();
+            String domain;
+            try {
+                domain = URI.create(websiteUrl).getHost();
+            } catch (RuntimeException e) {
+                domain = null;
+            }
+            if (domain == null || domain.isBlank()) return;
+
+            PrivacyDiscoveryDiscoveredEvent event = new PrivacyDiscoveryDiscoveredEvent(
+                    UUID.randomUUID(), analysis.getId(), analysis.getUserId(),
+                    domain.toLowerCase(Locale.ROOT), websiteUrl, findings, Instant.now(), 1);
+            outboxRepository.save(ExtractionOutboxEvent.builder()
+                    .id(event.eventId())
+                    .aggregateId(analysis.getId())
+                    .eventType(EventRoutingKey.PRIVACY_DISCOVERY_DISCOVERED)
+                    .payload(objectMapper.writeValueAsString(event))
+                    .build());
+            log.info("Queued {} privacy discovery findings for analysis {}", findings.size(), analysis.getId());
+        } catch (Exception e) {
+            log.warn("Failed to queue privacy discovery event for analysis {}", analysis.getId(), e);
         }
     }
 

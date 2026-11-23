@@ -4,8 +4,9 @@ import com.linklens.extractionservice.service.UrlSafetyValidator;
 import com.linklens.extractionservice.exception.UnsafeUrlException;
 import com.linklens.extractionservice.websiteanalysis.WebsiteAnalysisStatus;
 import com.linklens.extractionservice.websiteanalysis.dto.CreateWebsiteAnalysisRequest;
-import com.linklens.extractionservice.websiteanalysis.dto.WebsiteAnalysisResponse;
+import com.linklens.extractionservice.websiteanalysis.dto.WebsiteAnalysisContextResponse;
 import com.linklens.extractionservice.websiteanalysis.dto.WebsiteAnalysisReportResponse;
+import com.linklens.extractionservice.websiteanalysis.dto.WebsiteAnalysisResponse;
 import com.linklens.extractionservice.websiteanalysis.entity.WebsiteAnalysis;
 import com.linklens.extractionservice.websiteanalysis.entity.WebsiteFinding;
 import com.linklens.extractionservice.websiteanalysis.entity.WebsitePage;
@@ -137,6 +138,37 @@ public class WebsiteAnalysisService {
         WebsiteAnalysis a = analysisRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Not found"));
         a.setReport(report);
         analysisRepository.save(a);
+    }
+
+    @Transactional(readOnly = true)
+    public WebsiteAnalysisContextResponse assistantContext(String userId, int limit) {
+        int capped = Math.max(1, Math.min(limit, 10));
+        List<WebsiteAnalysis> analyses = analysisRepository.findAllByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, capped)).getContent();
+        List<WebsiteAnalysisContextResponse.Report> reports = analyses.stream()
+                .filter(a -> a.getStatus() == WebsiteAnalysisStatus.COMPLETED || a.getStatus() == WebsiteAnalysisStatus.PARTIALLY_COMPLETED)
+                .map(a -> {
+                    List<WebsitePage> pages = pageRepository.findAllByAnalysisId(a.getId());
+                    java.util.Map<UUID, String> pageUrls = pages.stream()
+                            .filter(p -> p.getId() != null)
+                            .collect(java.util.stream.Collectors.toMap(WebsitePage::getId, WebsitePage::getUrl, (l, r) -> l));
+                    List<WebsiteAnalysisContextResponse.Finding> findings = findingRepository.findAllByAnalysisId(a.getId()).stream()
+                            .limit(20)
+                            .map(f -> new WebsiteAnalysisContextResponse.Finding(
+                                    f.getType(), f.getName(), trimTo(f.getDescription(), 200), trimTo(f.getEvidence(), 300),
+                                    f.getConfidence(), f.getPageId() == null ? null : pageUrls.get(f.getPageId())))
+                            .toList();
+                    return new WebsiteAnalysisContextResponse.Report(
+                            a.getId().toString(), a.getDomain(), a.getOriginalUrl(), a.getStatus().name(),
+                            a.getRiskLevel(), a.getConfidence(), a.getCategory(), trimTo(a.getReport(), 3000), findings);
+                })
+                .toList();
+        return new WebsiteAnalysisContextResponse(reports);
+    }
+
+    private static String trimTo(String value, int max) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.length() <= max ? trimmed : trimmed.substring(0, max);
     }
 
     @Transactional

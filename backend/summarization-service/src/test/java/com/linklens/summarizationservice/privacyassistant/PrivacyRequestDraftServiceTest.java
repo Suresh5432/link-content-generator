@@ -2,15 +2,13 @@ package com.linklens.summarizationservice.privacyassistant;
 
 import com.linklens.summarizationservice.service.ai.AiProvider;
 import com.linklens.summarizationservice.service.ai.AiRequest;
-import com.linklens.summarizationservice.service.ai.AiResponse;
+import com.linklens.summarizationservice.service.ai.ResponseFormat;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,13 +23,14 @@ class PrivacyRequestDraftServiceTest {
 
     @Test
     void promptKeepsDraftGroundedAndFreeOfSecrets() {
-        when(aiProvider.generateSummary(any())).thenReturn(new AiResponse("Subject: Request for Deletion of Personal Data\n\nHello...", List.of(), "mock", "mock", 1, 1));
+        when(aiProvider.generateText(any())).thenReturn("Subject: Request for Deletion of Personal Data\n\nHello...");
 
         String draft = service.draft("DELETION", "Example Bank", "email, address");
 
         assertTrue(draft.startsWith("Subject:"));
         ArgumentCaptor<AiRequest> captor = ArgumentCaptor.forClass(AiRequest.class);
-        verify(aiProvider).generateSummary(captor.capture());
+        verify(aiProvider).generateText(captor.capture());
+        assertEquals(ResponseFormat.PLAIN_TEXT, captor.getValue().format());
         String prompt = captor.getValue().content();
         assertTrue(prompt.contains("Return ONLY the finished message"));
         assertTrue(prompt.contains("Never invent account identifiers"));
@@ -43,7 +42,13 @@ class PrivacyRequestDraftServiceTest {
 
     @Test
     void emptyProviderOutputIsRejected() {
-        when(aiProvider.generateSummary(any())).thenReturn(new AiResponse("  ", List.of(), "mock", "mock", 1, 1));
+        when(aiProvider.generateText(any())).thenReturn("  ");
         assertThrows(IllegalStateException.class, () -> service.draft("ACCESS", "Example", null));
+    }
+
+    @Test
+    void rawSecretsAreNotSentToTheProvider() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.draft("DELETION", "Example", "card number: 4111111111111111"));
     }
 }

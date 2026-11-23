@@ -34,8 +34,11 @@ public class RateLimitService {
     }
 
     public boolean isAllowed(String userId){
+        return isAllowed(userId, "api", REQUEST_LIMIT);
+    }
 
-        String key="rate-limit:api-gateway:"+userId;
+    public boolean isAllowed(String userId, String bucket, int limit){
+        String key="rate-limit:api-gateway:"+bucket+":"+userId;
 
         Long requestCount=redisTemplate.execute(
                 rateLimitScript,
@@ -45,13 +48,14 @@ public class RateLimitService {
 
         if (requestCount==null){
             throw new IllegalStateException(
-                    "Unable to retrieve rate limit count form Redis"
+                    "Unable to retrieve rate limit count from Redis"
             );
         }
 
-        if (requestCount>REQUEST_LIMIT){
+        if (requestCount>limit){
             log.warn(
-                    "Rate limit exceeded | userId={} | requestCount={}",
+                    "Rate limit exceeded | bucket={} | userId={} | requestCount={}",
+                    bucket,
                     userId,
                     requestCount
             );

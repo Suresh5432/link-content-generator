@@ -32,6 +32,8 @@ public class UserWebsiteAccountService {
             throw new InvalidRequestException("discoverySource must be MANUAL or CONNECTED_EMAIL");
         }
         boolean confirmed = request.confirmed() == null ? source.equals("MANUAL") : request.confirmed();
+        SensitiveDataGuard.rejectSecretMaterial(request.accountIdentifier());
+        SensitiveDataGuard.rejectSecretMaterial(request.sharedInformation());
         UserWebsiteAccount account = UserWebsiteAccount.builder()
                 .trackedWebsiteId(websiteId)
                 .userId(userId)
@@ -61,6 +63,8 @@ public class UserWebsiteAccountService {
     @Transactional
     public UserWebsiteAccount update(String userId, UUID id, UpdateUserWebsiteAccountRequest request) {
         UserWebsiteAccount account = requireOwned(userId, id);
+        SensitiveDataGuard.rejectSecretMaterial(request.accountIdentifier());
+        SensitiveDataGuard.rejectSecretMaterial(request.sharedInformation());
         if (request.accountIdentifier() != null) account.setAccountIdentifier(trimToNull(request.accountIdentifier()));
         if (request.accountCreationDate() != null) account.setAccountCreationDate(Ids.parseDate(request.accountCreationDate(), "accountCreationDate"));
         if (request.accountCategory() != null) account.setAccountCategory(trimToNull(request.accountCategory()));

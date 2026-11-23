@@ -73,8 +73,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       await signInAgain()
       throw new ApiError('Your session has ended. Sign in again to continue.', 401)
     }
-    headers.set('Authorization', `******`)
+    headers.set('Authorization', `Bearer ${keycloak.token}`)
     response = await fetch(url, { ...init, headers })
+    if (response.status === 403) {
+      throw new ApiError('Your account does not have access to this feature. Sign out and back in, then try again.', 403)
+    }
   }
   if (!response.ok) {
     let message = `Request failed (${response.status})`
@@ -139,6 +142,7 @@ export const api = {
   privacyRequest: (id: string) => request<PrivacyRequest>(`/api/v1/privacy-requests/${encodeURIComponent(id)}`),
   createPrivacyRequest: (data: { trackedWebsiteId?: string; requestType: string; requestMessage?: string; privacyContactUrl?: string; privacyContactEmail?: string; dataCategories?: string; preferredContact?: string; legalBasis?: string }) => request<PrivacyRequest>('/api/v1/privacy-requests', { method: 'POST', body: JSON.stringify(data) }),
   updatePrivacyRequest: (id: string, data: Partial<Record<string, unknown>>) => request<PrivacyRequest>(`/api/v1/privacy-requests/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  requestPrivacyReview: (id: string) => request<PrivacyRequest>(`/api/v1/privacy-requests/${encodeURIComponent(id)}/review`, { method: 'POST' }),
   approvePrivacyRequest: (id: string) => request<PrivacyRequest>(`/api/v1/privacy-requests/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
   submitPrivacyRequest: (id: string, data?: { submissionMethod?: string; externalReference?: string }) => request<PrivacyRequest>(`/api/v1/privacy-requests/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify(data ?? {}) }),
   cancelPrivacyRequest: (id: string) => request<PrivacyRequest>(`/api/v1/privacy-requests/${encodeURIComponent(id)}/cancel`, { method: 'POST' }),
@@ -149,7 +153,7 @@ export const api = {
   addPrivacyRequestEvidence: (id: string, data: { type: string; description?: string; referenceUrl?: string }) => request<PrivacyRequestEvidence>(`/api/v1/privacy-requests/${encodeURIComponent(id)}/evidence`, { method: 'POST', body: JSON.stringify(data) }),
   privacyRequestHistory: (id: string) => request<PrivacyRequestHistory[]>(`/api/v1/privacy-requests/${encodeURIComponent(id)}/history`),
   privacyRequestReminders: () => request<PrivacyRequest[]>('/api/v1/privacy-requests/reminders'),
-  privacyAssistant: (question: string, context: string) => request<{ answer: string }>('/api/v1/privacy-assistant', { method: 'POST', body: JSON.stringify({ question, context }) }),
+  privacyAssistant: (question: string) => request<{ answer: string }>('/api/v1/privacy-assistant', { method: 'POST', body: JSON.stringify({ question }) }),
   privacyRequestDraft: (data: { requestType: string; websiteName: string; dataCategories?: string }) => request<{ message: string }>('/api/v1/privacy-request-drafts', { method: 'POST', body: JSON.stringify(data) }),
   exportDigitalFootprint: () => request<Record<string, unknown>>('/api/v1/digital-footprint/export'),
   deleteDigitalFootprintAccountData: () => request<Record<string, unknown>>('/api/v1/digital-footprint/account-data', { method: 'DELETE' }),

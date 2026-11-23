@@ -90,7 +90,7 @@ describe('API requests', () => {
     expect(keycloak.updateToken).toHaveBeenNthCalledWith(2, -1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     const [, retryOptions] = fetchMock.mock.calls[1] as [string, RequestInit]
-    expect(new Headers(retryOptions.headers).get('Authorization')).toBe('******')
+    expect(new Headers(retryOptions.headers).get('Authorization')).toBe('Bearer refreshed-role-token')
   })
 
   it('starts sign-in when the token cannot be refreshed', async () => {

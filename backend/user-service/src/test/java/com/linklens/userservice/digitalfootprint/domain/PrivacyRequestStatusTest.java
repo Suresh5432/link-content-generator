@@ -17,7 +17,8 @@ class PrivacyRequestStatusTest {
     void submittedCanProgressAndTerminate() {
         assertTrue(PrivacyRequestStatus.SUBMITTED.canTransitionTo(PrivacyRequestStatus.ACKNOWLEDGED));
         assertTrue(PrivacyRequestStatus.SUBMITTED.canTransitionTo(PrivacyRequestStatus.IN_PROGRESS));
-        assertTrue(PrivacyRequestStatus.SUBMITTED.canTransitionTo(PrivacyRequestStatus.COMPLETED));
+        assertFalse(PrivacyRequestStatus.SUBMITTED.canTransitionTo(PrivacyRequestStatus.COMPLETED));
+        assertTrue(PrivacyRequestStatus.NEEDS_VERIFICATION.canTransitionTo(PrivacyRequestStatus.COMPLETED));
         assertFalse(PrivacyRequestStatus.SUBMITTED.canTransitionTo(PrivacyRequestStatus.DRAFT));
     }
 
