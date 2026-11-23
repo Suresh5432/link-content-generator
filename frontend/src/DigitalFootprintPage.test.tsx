@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { DigitalFootprintPage } from './DigitalFootprintPage'
 import { api } from './api'
-import type { PrivacyMetrics, PrivacyPreference, TrackedWebsite } from './types'
+import type { PrivacyMetrics, PrivacyPreference, PrivacyRequest, TrackedWebsite } from './types'
 
 vi.mock('./api', () => ({
   api: {
     digitalFootprintWebsites: vi.fn(), digitalFootprintMetrics: vi.fn(), allDataRecords: vi.fn(),
     cookies: vi.fn(), privacyRequests: vi.fn(), privacyPreferences: vi.fn(), browserIntegrations: vi.fn(),
-    websiteAnalyses: vi.fn(), privacyAssistant: vi.fn(), updatePrivacyPreferences: vi.fn(),
+    websiteAnalyses: vi.fn(), privacyAssistant: vi.fn(), privacyRequestDraft: vi.fn(), updatePrivacyPreferences: vi.fn(),
     createDigitalFootprintWebsite: vi.fn(), updateDigitalFootprintWebsite: vi.fn(), deleteDigitalFootprintWebsite: vi.fn(),
     importDigitalFootprintWebsite: vi.fn(), websiteAnalysisFindings: vi.fn(), updatePrivacyContact: vi.fn(),
     dataRecords: vi.fn(), createDataRecord: vi.fn(), deleteDataRecord: vi.fn(),
@@ -47,7 +47,7 @@ describe('My Digital Footprint', () => {
     expect(await screen.findByRole('heading', { name: 'My Digital Footprint' })).toBeInTheDocument()
     expect(await screen.findByText('Tracked websites')).toBeInTheDocument()
     expect(await screen.findByText('Pending deletions')).toBeInTheDocument()
-    expect(await screen.findByText(/request\(s\) awaiting a response/i)).toBeInTheDocument()
+    expect(await screen.findByText('Outstanding actions')).toBeInTheDocument()
   })
 
   it('lists tracked websites with data and tracker indicators', async () => {
@@ -67,6 +67,19 @@ describe('My Digital Footprint', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
     await waitFor(() => expect(api.privacyAssistant).toHaveBeenCalled())
     expect(await screen.findByText(/Example Bank has your email address/)).toBeInTheDocument()
+  })
+
+  it('drafts a privacy request with AI only after choosing a website', async () => {
+    vi.mocked(api.privacyRequestDraft).mockResolvedValue({ message: 'Subject: Request for Deletion\n\nHello Privacy Team,' })
+    vi.mocked(api.createPrivacyRequest).mockResolvedValue({ id: 'r1' } as PrivacyRequest)
+    render(<DigitalFootprintPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove my data' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft with AI' }))
+    await waitFor(() => expect(api.privacyRequestDraft).not.toHaveBeenCalled())
+    fireEvent.change(screen.getByLabelText('Website'), { target: { value: 'w1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Draft with AI' }))
+    await waitFor(() => expect(api.privacyRequestDraft).toHaveBeenCalledWith({ requestType: 'DELETION', websiteName: 'Example Bank', dataCategories: undefined }))
+    await waitFor(() => expect(api.createPrivacyRequest).toHaveBeenCalledWith(expect.objectContaining({ requestMessage: 'Subject: Request for Deletion\n\nHello Privacy Team,' })))
   })
 
   it('updates a privacy preference through the API', async () => {

@@ -207,7 +207,10 @@ function Websites({ websites, analyses, busy, onChanged, onError }: { websites: 
     {busy ? <p className="df-muted">Loading websites…</p> : visible.length === 0 ? <div className="empty-state empty-card"><h3>No websites yet</h3><p>Add a website or import a completed analysis to start your footprint.</p></div> : <div className="df-stack">
       {visible.map(w => <section key={w.id} className="panel df-site-card">
         <div className="df-site-head">
-          <div><h3>{w.name}</h3><p className="df-muted">{w.domain} · {w.category || 'Uncategorised'} · risk {w.riskLevel || 'unknown'}</p></div>
+          <div className="df-site-identity">
+            <span className="df-site-logo" aria-hidden="true">{(w.name || w.domain || '?').slice(0, 1).toUpperCase()}</span>
+            <div><h3>{w.name}</h3><p className="df-muted">{w.domain} · {w.category || 'Uncategorised'} · risk {w.riskLevel || 'unknown'}</p></div>
+          </div>
           <div className="df-row-actions">
             {w.fromAnalysisId && <button className="button button-outline button-small" onClick={() => void discover(w)} disabled={working}>Discover privacy contacts</button>}
             <button className="button button-delete button-small" onClick={async () => { if (!confirm(`Remove ${w.name} from your dashboard? This does not delete data held by the website.`)) return; try { await api.deleteDigitalFootprintWebsite(w.id); onChanged() } catch (e) { onError(message(e)) } }}>Remove</button>
@@ -321,6 +324,7 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
   const [claimed, setClaimed] = useState(false)
   const [evidence, setEvidence] = useState<PrivacyRequestEvidence[]>([])
   const [history, setHistory] = useState<PrivacyRequestHistory[]>([])
+  const [drafting, setDrafting] = useState(false)
   const selected = requests.find(r => r.id === selectedId) ?? null
   const siteName = (id: string | null) => id ? websites.find(w => w.id === id)?.name ?? 'Website' : 'No website'
 
@@ -329,6 +333,17 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
       const created = await api.createPrivacyRequest({ trackedWebsiteId: form.trackedWebsiteId || undefined, requestType: form.requestType, dataCategories: form.dataCategories || undefined, privacyContactEmail: form.privacyContactEmail || undefined, privacyContactUrl: form.privacyContactUrl || undefined, preferredContact: form.preferredContact || undefined, legalBasis: form.legalBasis || undefined })
       setSelectedId(created.id); onChanged()
     } catch (e) { onError(message(e)) }
+  }
+
+  async function createWithAi() {
+    const site = websites.find(w => w.id === form.trackedWebsiteId)
+    if (!site) { onError('Choose a website so the AI draft has context.'); return }
+    setDrafting(true)
+    try {
+      const draft = await api.privacyRequestDraft({ requestType: form.requestType, websiteName: site.name, dataCategories: form.dataCategories || undefined })
+      const created = await api.createPrivacyRequest({ trackedWebsiteId: form.trackedWebsiteId || undefined, requestType: form.requestType, dataCategories: form.dataCategories || undefined, privacyContactEmail: form.privacyContactEmail || undefined, privacyContactUrl: form.privacyContactUrl || undefined, preferredContact: form.preferredContact || undefined, legalBasis: form.legalBasis || undefined, requestMessage: draft.message })
+      setSelectedId(created.id); onChanged()
+    } catch (e) { onError(message(e)) } finally { setDrafting(false) }
   }
 
   async function loadDetail(id: string) {
@@ -351,7 +366,11 @@ function Requests({ websites, requests, onChanged, onError }: { websites: Tracke
         <label className="form-label">Privacy request URL<input value={form.privacyContactUrl} onChange={e => setForm({ ...form, privacyContactUrl: e.target.value })} placeholder="https://…" /></label>
         <label className="form-label">Your contact<input value={form.preferredContact} onChange={e => setForm({ ...form, preferredContact: e.target.value })} placeholder="email to reply to" /></label>
       </div>
-      <button className="button button-dark button-small" onClick={() => void create()}>Prepare draft</button>
+      <div className="df-inline">
+        <button className="button button-dark button-small" onClick={() => void create()}>Prepare draft</button>
+        <button className="button button-outline button-small" disabled={drafting} onClick={() => void createWithAi()}>{drafting ? 'Drafting…' : 'Draft with AI'}</button>
+      </div>
+      <p className="df-muted">AI drafts are suggestions only. Review and edit the exact message before approval; nothing is submitted automatically.</p>
     </section>
 
     <div className="df-request-layout">

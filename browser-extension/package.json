@@ -1,0 +1,8 @@
+{
+  "name": "link-context-browser-extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test manifest.test.mjs"
+  }
+}

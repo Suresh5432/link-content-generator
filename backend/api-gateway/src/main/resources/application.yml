@@ -69,6 +69,10 @@ spring:
               uri: ${SUMMARY_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/v1/privacy-assistant,/api/v1/privacy-assistant/**
+            - id: privacy-request-draft-service
+              uri: ${SUMMARY_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/privacy-request-drafts,/api/v1/privacy-request-drafts/**
             - id: website-analysis-service
               uri: ${EXTRACTION_SERVICE_URL:http://localhost:8082}
               predicates:

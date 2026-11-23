@@ -2,6 +2,19 @@
 
 **Status: backend implementation is not yet accepted as production-complete.** The latest follow-up rebuilt and redeployed the Summarization Service with the tested input/retry fixes, and a direct SMTP STARTTLS test was accepted by the configured relay. A recovered content-extracted event was published three times with RabbitMQ management reporting routed successfully; one matching consumer receipt was observed, but repeated Docker Desktop engine/socket loss prevented verifying final summary/link/notification/email state. The original DLQ queue was empty when inspected; the persistent extraction outbox record was replayed instead. No temporary Keycloak test identities or clients existed during the live Keycloak admin check. The authenticated URL-to-summary-to-notification workflow, SMTP relay acceptance, owner isolation, five-database backup/restore, Rabbit duplicate/restart recovery, HTTP and Rabbit consumer trace propagation, a controlled Alertmanager SMTP notification, and health/metrics checks have now been exercised. On 2026-11-21, Docker Desktop memory was increased and confirmed on `desktop-linux`; the full Compose stack recovered, all six app readiness probes passed, Qwen inference succeeded, and the available Redis/PostgreSQL Testcontainers suites passed. Rabbit broker failure/out-of-order runtime cases, full event producer-to-consumer trace continuity, production Alertmanager recipient configuration, and other production checks remain open. Historical runtime notes below are chronological; the newest dated verification supersedes earlier state descriptions.
 
+## 2026-11-23 update: My Digital Footprint delivered
+
+The **My Digital Footprint** feature is implemented across the existing services without replacing the URL-to-summary workflow. See [the feature guide](docs/DIGITAL-FOOTPRINT.md) for the full scope, API, lifecycle, security guarantees and deliberate limits.
+
+- user-service owns footprint tables (`V5__expand_digital_footprint.sql`), ownership-scoped CRUD, personal-data inventory with secret rejection, account records, cookie metadata, privacy contacts/preferences, browser installations, privacy-request state machine/history/evidence/reminders, export and account-data deletion.
+- summarization-service adds the grounded privacy assistant and an opt-in AI privacy-request draft endpoint; prompts forbid invented records/secrets and drafts are suggestions only.
+- extraction-service extends Website Intelligence with privacy-policy/deletion/access/consent/DPO/contact discovery. notification-service consumes versioned privacy status/reminder events. api-gateway routes the new public APIs.
+- frontend adds the eight-tab **My Digital Footprint** workspace; `browser-extension/` syncs cookie metadata only and removes cookies locally after confirmation.
+
+**Verified on 2026-11-23:** link-service 17 tests, extraction-service 27, summarization-service 33, user-service 50, notification-service 9, api-gateway 13 — all 0 failures/errors/skips. Frontend `tsc -b`, `eslint`, `npm test` (22 tests) and `npm run build` pass. Extension `node --test` (4 tests) passes. Migrations are validated against disposable PostgreSQL for all five DBs, and Docker-backed Redis/Rabbit suites are included.
+
+**Environment caveat:** a single unfiltered `mvn test` can flake in this workspace when the full Compose stack and other processes consume memory; the pre-existing `ExtractionRetryPublisherRabbitMQIntegrationTest` occasionally loses its Testcontainers RabbitMQ connection. Every module and that class pass when run alone/sequentially. This is capacity-related, not a feature regression. Prior production-readiness gaps listed below (live SMTP/inbox receipt, Keycloak negative matrix, broker outage/DLQ replay, sustained load) remain open and are not claimed as complete.
+
 ## Priority checklist
 
 | Priority | Area | Status | Evidence / remaining work |

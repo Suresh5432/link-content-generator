@@ -26,6 +26,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import com.linklens.extractionservice.websiteanalysis.event.WebsiteAnalysisCreatedEvent;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
@@ -72,7 +73,7 @@ public class WebsiteAnalysisInspectionRunner {
 
     @Async("websiteAnalysisExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onCreated(WebsiteAnalysisCreatedEvent event) {
         java.util.UUID analysisId = event.analysisId();
         WebsiteAnalysis analysis = analysisRepository.findById(analysisId).orElse(null);

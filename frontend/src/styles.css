@@ -34,6 +34,9 @@
 .df-site-card { padding: 16px; }
 .df-site-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
 .df-site-head h2, .df-site-head h3 { margin: 0 0 4px; }
+.df-site-identity { display: flex; align-items: flex-start; gap: 11px; min-width: 0; }
+.df-site-logo { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; border-radius: 10px; background: var(--panel-strong, #eef2f7); border: 1px solid var(--border, #d7dee8); font-weight: 700; color: var(--text, #1c2733); }
+.df-site-identity h3 { overflow-wrap: anywhere; }
 .df-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .df-actions-wrap { margin-top: 10px; }
 .df-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }

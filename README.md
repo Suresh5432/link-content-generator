@@ -9,13 +9,23 @@ Link Context Generator accepts a webpage URL, extracts its content, and generate
 | `backend/api-gateway` | Public HTTP entry point, JWT checks, routing, Redis rate limiting |
 | `backend/link-service` | Link ownership, lifecycle, idempotent submission and event publication |
 | `backend/extraction-service` | Safe webpage fetching, content extraction and persistence |
-| `backend/summarization-service` | AI provider calls and summary persistence |
-| `backend/user-service` | User profile APIs and secured internal profile lookup |
+| `backend/summarization-service` | AI provider calls, summaries, grounded privacy assistant and AI request drafts |
+| `backend/user-service` | User profile APIs, My Digital Footprint inventory, privacy requests, browser metadata, export/delete |
 | `backend/notification-service` | In-app notification APIs and asynchronous email delivery |
 | `backend/common/event-contracts` | Shared event types and routing-key contracts |
+| `frontend/` | React/TypeScript workspace including **My Digital Footprint** |
+| `browser-extension/` | Optional Manifest V3 extension that syncs cookie **metadata** only |
 | `infrastructure/` | Compose deployment, PostgreSQL initialization and monitoring configuration |
 
 Each service owns its database. Do not connect one service directly to another service’s schema. The URL-to-summary workflow uses RabbitMQ; see [architecture and API status](infrastructure/ARCHITECTURE.md) and [messaging operations](infrastructure/MESSAGING.md).
+
+## My Digital Footprint
+
+The workspace now includes a privacy dashboard where a signed-in user can track websites and category-level personal-data records, sync cookie/tracker metadata through an optional browser extension, discover public privacy-request channels, generate and approve deletion/access requests, track responses and reminders, ask a grounded AI assistant about their own records, and export or delete their footprint data.
+
+Safety rules are enforced in code and tests: no passwords, raw cookie values, session tokens, full card numbers or identity numbers are stored; AI receives category-level context only; the user must approve the exact request message before submission; a website's deletion claim is recorded as a claim, not proof; and deleting cookie metadata never claims to delete server-side data.
+
+Full feature architecture, API, lifecycle, security rules, limits and test evidence: [My Digital Footprint](docs/DIGITAL-FOOTPRINT.md).
 
 ## Local deployment
 
@@ -45,6 +55,7 @@ The package command compiles and packages Maven modules without running tests. T
 ## Service and operational documentation
 
 - [Backend completion report and prioritized checklist](COMPLETION-REPORT.md)
+- [My Digital Footprint feature guide](docs/DIGITAL-FOOTPRINT.md)
 - [OpenAPI specification for public Gateway APIs](docs/openapi.yaml)
 - [Architecture, APIs, and current implementation status](infrastructure/ARCHITECTURE.md)
 - [Keycloak realm, clients, audiences, and scopes](infrastructure/KEYCLOAK.md)
